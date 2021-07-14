@@ -1,4 +1,6 @@
 {
-    "key_file":"/home/username/.config/rac/ripeatlas.api.key",
-    "validate_key":true
+    "auth":{
+        "key_file":"/home/username/.config/dante/ripeatlas.api.key",
+        "validate_key":true
+    }
 }

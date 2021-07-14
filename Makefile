@@ -1,27 +1,27 @@
-# Makefile for Go module github.com/cicovic-andrija/rac
+# Makefile for Go module github.com/cicovic-andrija/dante
 #
 
-BINLOC = bin
-BINUSER = $(HOME)/bin
-BINF = rac
+BIN = dantesrv
+BIN_DIR = bin
+BIN_USER = $(HOME)/bin
 
 .PHONY: install
 install: build
-	cp $(BINLOC)/$(BINF) $(BINUSER)/$(BINF)
+	@cp $(BIN_DIR)/$(BIN) $(BIN_USER)/$(BIN)
 
 .PHONY: build
 build: prebuild
-	go build -o $(BINLOC)/$(BINF) -v ./cmd
+	go build -o $(BIN_DIR)/$(BIN) -v ./cmd
 
 .PHONY: prebuild
 prebuild:
-	mkdir -p $(BINLOC)
+	@mkdir -p $(BIN_DIR)
 
 .PHONY: clean
 clean:
-	go clean
-	rm -rf $(BINLOC)
+	@go clean
+	@rm -rf $(BIN_DIR)
 
 .PHONY: tidy
 tidy:
-	go mod tidy
+	@go mod tidy

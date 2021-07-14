@@ -1,22 +1,22 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
-	"github.com/cicovic-andrija/rac/config"
-)
-
-var (
-	g_cfg *config.Config
+	"github.com/cicovic-andrija/dante/config"
 )
 
 func main() {
 	var (
-		err error
+		configPath = flag.String("config", "", "Config file path")
+		err        error
 	)
 
-	if g_cfg, err = config.Load(); err != nil {
+	flag.Parse()
+
+	if _, err = config.Load(*configPath); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}

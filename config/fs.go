@@ -10,27 +10,21 @@ import (
 	"regexp"
 )
 
-var (
-	g_configHome string
-)
-
 const (
-	ConfigDir  = "rac"
-	ConfigFile = "config.json"
+	DefaultConfigDir  = "dante"
+	DefaultConfigFile = "config.json"
 
-	dirFilePerm = 0755 // FIXME: is this the correct value?
+	NewDirPermissions = 0755
 )
 
 func configPath() (path string, err error) {
 	// On Unix systems: $XDG_CONFIG_HOME or $HOME/.config
-	// On Windows: %AppData%
 	home, err := os.UserConfigDir()
 	if err != nil {
 		return
 	}
 
-	g_configHome = home
-	path = filepath.Join(home, ConfigDir, ConfigFile)
+	path = filepath.Join(home, DefaultConfigDir, DefaultConfigFile)
 	return
 }
 
@@ -49,7 +43,7 @@ func readKey(path string, validate bool) (key string, err error) {
 	if err != nil {
 		return
 	}
-	defer file.Close() // ignore errors
+	defer file.Close() // FIXME: handle error
 
 	scanner := bufio.NewScanner(file)
 
@@ -74,7 +68,7 @@ func readKey(path string, validate bool) (key string, err error) {
 }
 
 func writeConfig(path string, cfg *Config) error {
-	err := os.MkdirAll(filepath.Join(g_configHome, ConfigDir), dirFilePerm)
+	err := os.MkdirAll(filepath.Dir(path), NewDirPermissions)
 	if err != nil {
 		return err
 	}
@@ -88,45 +82,37 @@ func writeConfig(path string, cfg *Config) error {
 	return json.NewEncoder(file).Encode(cfg)
 }
 
-func Load() (*Config, error) {
-	// determine config file location
-	path, err := configPath()
-	if err != nil {
-		err = fmt.Errorf("failed to find config directory: %v", err)
-		return nil, err
+// Load reads settings from a config file
+func Load(path string) (*Config, error) {
+
+	if path == "" {
+		var err error
+		path, err = configPath()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find config directory: %v", err)
+		}
 	}
 
-	// try to write the config file if it doesn't exist
 	if _, statErr := os.Stat(path); statErr != nil && os.IsNotExist(statErr) {
-		cfg := newDefaultConfig()
-		writeConfig(path, cfg) // silently try to write the config file
+		cfg := NewDefaultConfig()
+		writeConfig(path, cfg) // silently try to write new config file
 		return cfg, nil
 	}
-	// config file exists
 
-	// attempt to open and decode the config file
 	file, err := os.Open(path)
 	if err != nil {
-		err = fmt.Errorf("failed to open config file %s: %v", path, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to open config file %q: %v", path, err)
 	}
 
 	cfg := &Config{}
 	err = json.NewDecoder(file).Decode(cfg)
 	if err != nil {
-		err = fmt.Errorf("failed to decode the config file: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to decode config file %q: %v", path, err)
 	}
 
-	// read API key if key file was specified
-	cfg.Key = ""
-	if cfg.KeyFile != "" {
-		key, err := readKey(cfg.KeyFile, cfg.ValidateKey)
-		if err != nil {
-			err = fmt.Errorf("failed to read API key: %v", err)
-			return nil, err
-		}
-		cfg.Key = key
+	err = cfg.Init()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize config struct: %v", err)
 	}
 
 	return cfg, nil
