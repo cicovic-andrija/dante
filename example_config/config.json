@@ -1,6 +1,17 @@
 {
+    "env": "dev",
+    "net": {
+        "tcp": {
+            "port": 8080
+        }
+    },
     "auth":{
         "key_file":"/home/username/.config/dante/ripeatlas.api.key",
         "validate_key":true
+    },
+    "log": {
+        "dir": "/tmp",
+        "info_var": "INFO",
+        "error_var": "ERROR"
     }
 }

@@ -1,4 +1,4 @@
-package api
+package ripe
 
 // ResourceListBase (Object List Resource)
 type ResourceListBase struct {

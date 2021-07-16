@@ -1,4 +1,4 @@
-package config
+package conf
 
 import (
 	"bufio"
@@ -95,6 +95,7 @@ func Load(path string) (*Config, error) {
 
 	if _, statErr := os.Stat(path); statErr != nil && os.IsNotExist(statErr) {
 		cfg := NewDefaultConfig()
+		cfg.path = path
 		writeConfig(path, cfg) // silently try to write new config file
 		return cfg, nil
 	}
@@ -112,8 +113,9 @@ func Load(path string) (*Config, error) {
 
 	err = cfg.Init()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize config struct: %v", err)
+		return nil, fmt.Errorf("%s: failed to initialize config struct: %v", path, err)
 	}
 
+	cfg.path = path
 	return cfg, nil
 }

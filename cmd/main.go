@@ -2,22 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
 
-	"github.com/cicovic-andrija/dante/config"
+	"github.com/cicovic-andrija/dante/websvc"
 )
 
 func main() {
-	var (
-		configPath = flag.String("config", "", "Config file path")
-		err        error
-	)
-
+	conf := flag.String("conf", "", "Config file path")
 	flag.Parse()
-
-	if _, err = config.Load(*configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
-	}
+	websvc.Start(*conf)
 }
