@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,9 +14,14 @@ import (
 const (
 	DefaultConfigDir  = "dante"
 	DefaultConfigFile = "config.json"
-
 	NewDirPermissions = 0755
 )
+
+var path string
+
+func init() {
+	flag.StringVar(&path, "conf", "", "Config file path")
+}
 
 func configPath() (path string, err error) {
 	// On Unix systems: $XDG_CONFIG_HOME or $HOME/.config
@@ -48,7 +54,7 @@ func readKey(path string, validate bool) (key string, err error) {
 	scanner := bufio.NewScanner(file)
 
 	// advance the scanner to the EOL
-	if scanner.Scan() == false {
+	if !scanner.Scan() {
 		// scanning "failed"
 		err = scanner.Err()
 		if err != nil {
@@ -83,7 +89,7 @@ func writeConfig(path string, cfg *Config) error {
 }
 
 // Load reads settings from a config file
-func Load(path string) (*Config, error) {
+func Load() (*Config, error) {
 
 	if path == "" {
 		var err error

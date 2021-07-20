@@ -14,9 +14,9 @@ func die(err error) {
 	os.Exit(1)
 }
 
-func Start(confPath string) {
+func Start() {
 	var err error
-	if cfg, err = conf.Load(confPath); err != nil {
+	if cfg, err = conf.Load(); err != nil {
 		die(err)
 	}
 

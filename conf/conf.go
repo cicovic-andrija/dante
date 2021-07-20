@@ -50,9 +50,7 @@ type Auth struct {
 
 // Log
 type Log struct {
-	Dir      string `json:"dir"`
-	InfoVar  string `json:"info_var"`
-	ErrorVar string `json:"error_var"`
+	Dir string `json:"dir"`
 }
 
 func NewDefaultConfig() *Config {
@@ -68,9 +66,7 @@ func NewDefaultConfig() *Config {
 			ValidateKey: DefaultValidateKey,
 		},
 		Log: Log{
-			Dir:      DefaultLogDir,
-			InfoVar:  DefaultInfoVar,
-			ErrorVar: DefaultErrorVar,
+			Dir: DefaultLogDir,
 		},
 	}
 	cfg.Init() // must not fail here
@@ -87,7 +83,7 @@ func (cfg *Config) Init() error {
 		return fmt.Errorf("invalid environment: env cannot be empty")
 	}
 
-	if !(cfg.Net.Tcp.Port > 0 && cfg.Net.Tcp.Port <= MaxPortNumber) {
+	if cfg.Net.Tcp.Port < 1 || cfg.Net.Tcp.Port > MaxPortNumber {
 		return fmt.Errorf("invalid TCP port number")
 	}
 

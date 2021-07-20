@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-	conf := flag.String("conf", "", "Config file path")
 	flag.Parse()
-	websvc.Start(*conf)
+	websvc.Start()
 }
