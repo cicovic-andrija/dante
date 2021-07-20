@@ -11,9 +11,7 @@ const (
 	DefaultTcpPort     = 8080
 	DefaultKeyFile     = ""
 	DefaultValidateKey = false
-	DefaultLogDir      = "/tmp/dante"
-	DefaultInfoVar     = "INFO"
-	DefaultErrorVar    = "ERROR"
+	DefaultLogDir      = "/tmp/log"
 )
 
 // Limits

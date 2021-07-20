@@ -77,8 +77,10 @@ func (s *server) initLogs() {
 	path := filepath.Join(cfg.Log.Dir, util.GenerateLogName(s.name, s.logRotation, "info"))
 	file, _ := os.Create(path)
 	s.inflog = log.New(file, "I: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile)
+	os.Symlink(path, filepath.Join(cfg.Log.Dir, "info")) // ignore errors
 
 	path = filepath.Join(cfg.Log.Dir, util.GenerateLogName(s.name, s.logRotation, "error"))
 	file, _ = os.Create(path)
 	s.errlog = log.New(file, "E: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile)
+	os.Symlink(path, filepath.Join(cfg.Log.Dir, "error")) // ignore errors
 }

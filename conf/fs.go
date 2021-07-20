@@ -13,7 +13,7 @@ import (
 
 const (
 	DefaultConfigDir  = "dante"
-	DefaultConfigFile = "config.json"
+	DefaultConfigFile = "conf.json"
 	NewDirPermissions = 0755
 )
 

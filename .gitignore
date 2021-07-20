@@ -8,6 +8,3 @@ bin/
 
 # Ignore files containing keys.
 keys/
-
-# Ignore specific files.
-deploy/copy-secrets.sh

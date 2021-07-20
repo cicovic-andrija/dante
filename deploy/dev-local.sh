@@ -24,7 +24,7 @@ else
 fi
 
 # Copy secrets
-source deploy/dev-copy-secrets.sh
+cp keys/*.key "$WORKDIR"
 
 echo "Starting dantesrv ..."
 set -x
