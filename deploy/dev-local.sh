@@ -1,5 +1,11 @@
 #!/bin/bash
 
+run_cmd() {
+    set -x
+    $@ &
+    { set +x; } 2>/dev/null
+}
+
 WORKDIR="$HOME/dante"
 LOGDIR="$WORKDIR/log"
 CONF="$WORKDIR/conf.json"
@@ -27,9 +33,7 @@ fi
 cp keys/*.key "$WORKDIR"
 
 echo "Starting dantesrv ..."
-set -x
-$WORKDIR/dantesrv -conf="$CONF"
-{ set +x; } 2>/dev/null
+run_cmd "$WORKDIR/dantesrv -conf=$CONF"
 
 sleep 1
 echo "Done."

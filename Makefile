@@ -9,11 +9,11 @@ build:
 	@mkdir -p $(BIN_DIR)
 	go build -o $(BIN_DIR)/$(BIN) -v ./cmd
 
+.PHONY: deploy
+deploy:
+	@./deploy/dev-local.sh
+
 .PHONY: clean
 clean:
 	@go clean
 	@rm -rf $(BIN_DIR)
-
-.PHONY: deploy
-deploy:
-	@./deploy/dev-local.sh

@@ -1,86 +1,65 @@
 package websvc
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/cicovic-andrija/dante/ripe"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+
 	"github.com/cicovic-andrija/dante/util"
 )
 
 type server struct {
-	name        string
-	httpClient  *http.Client
-	inflog      *log.Logger
-	errlog      *log.Logger
-	logRotation int
+	name           string
+	httpClient     *http.Client
+	influxDbClient influxdb2.Client
+	timerTasks     []*timerTask
+	log            *logstruct
 }
 
 func (s *server) init() error {
 	var err error
 
-	if s.name, err = util.GenerateHexString(6); err != nil {
+	if s.name, err = util.RandHexString(6); err != nil {
 		return err
 	}
 
-	s.initLogs()
-
-	// finalize init
-	s.inflog.Printf("name: %s, version: %s, build: %s, env: %s",
-		s.name, "0.1", "0.0", cfg.Env)
-
-	s.inflog.Printf("configuration: %s", cfg.Path())
+	s.log = &logstruct{}
+	if err = s.log.init(s.name); err != nil {
+		return err
+	}
 
 	s.httpClient = &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
+	s.timerTasks = []*timerTask{
+		{name: "get-credits", task: s.getCredits, period: 5 * time.Second, log: s.log},
+	}
+
+	// finalize init.
+	s.log.info("server %s (version: %s)", s.name, Version)
+	s.log.info("configuration: %s", cfg.Path())
+	s.log.info("environment: %s", cfg.Env)
+	s.log.info("boot sequence completed")
 	return nil
 }
 
-func (s *server) periodicCreditCheck() {
-	fmt.Println("Checking credit..")
-	// FIXME: handle error
-	req, _ := http.NewRequest(http.MethodGet, "https://atlas.ripe.net:443/api/v2/credits/", nil)
-	req.Header.Set("Authorization", "Key "+cfg.Auth.Key)
-	res, err := s.httpClient.Do(req)
-	if err != nil {
-		fmt.Println("error while requesting")
-		return
-	}
-	c := ripe.Credit{}
-	err = json.NewDecoder(res.Body).Decode(&c)
-	if err != nil {
-		fmt.Println("error while decoding")
-		return
-	}
-	fmt.Println(c.CurrentBalance)
-}
-
 func (s *server) run() {
+	s.log.info("(main) starting timer tasks ...")
+	for _, task := range s.timerTasks {
+		task.run()
+	}
 
+	time.Sleep(60 * time.Second)
+	s.shutdown()
 }
 
 func (s *server) shutdown() {
+	s.log.info("(main) stopping timer tasks ...")
+	for _, task := range s.timerTasks {
+		task.stop()
+	}
 
-}
-
-// FIXME: Handle errors and file closure
-func (s *server) initLogs() {
-	s.logRotation = 1
-
-	path := filepath.Join(cfg.Log.Dir, util.GenerateLogName(s.name, s.logRotation, "info"))
-	file, _ := os.Create(path)
-	s.inflog = log.New(file, "I: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile)
-	os.Symlink(path, filepath.Join(cfg.Log.Dir, "info")) // ignore errors
-
-	path = filepath.Join(cfg.Log.Dir, util.GenerateLogName(s.name, s.logRotation, "error"))
-	file, _ = os.Create(path)
-	s.errlog = log.New(file, "E: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC|log.Lshortfile)
-	os.Symlink(path, filepath.Join(cfg.Log.Dir, "error")) // ignore errors
+	s.log.finalize()
 }

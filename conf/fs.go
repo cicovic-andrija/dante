@@ -7,14 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
-)
 
-const (
-	DefaultConfigDir  = "dante"
-	DefaultConfigFile = "conf.json"
-	NewDirPermissions = 0755
+	"github.com/cicovic-andrija/dante/util"
 )
 
 var path string
@@ -23,21 +17,8 @@ func init() {
 	flag.StringVar(&path, "conf", "", "Config file path")
 }
 
-func configPath() (path string, err error) {
-	// On Unix systems: $XDG_CONFIG_HOME or $HOME/.config
-	home, err := os.UserConfigDir()
-	if err != nil {
-		return
-	}
-
-	path = filepath.Join(home, DefaultConfigDir, DefaultConfigFile)
-	return
-}
-
 func validateKey(key string) error {
-	uuidv4 := regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
-
-	if uuidv4.MatchString(key) {
+	if util.IsValidUUIDv4(key) {
 		return nil
 	} else {
 		return errors.New("provided key is not a valid UUID v4 string")
@@ -49,7 +30,7 @@ func readKey(path string, validate bool) (key string, err error) {
 	if err != nil {
 		return
 	}
-	defer file.Close() // FIXME: handle error
+	defer file.Close() // ignore returned error
 
 	scanner := bufio.NewScanner(file)
 
@@ -73,37 +54,14 @@ func readKey(path string, validate bool) (key string, err error) {
 	return
 }
 
-func writeConfig(path string, cfg *Config) error {
-	err := os.MkdirAll(filepath.Dir(path), NewDirPermissions)
-	if err != nil {
-		return err
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	return json.NewEncoder(file).Encode(cfg)
-}
-
 // Load reads settings from a config file
 func Load() (*Config, error) {
-
 	if path == "" {
-		var err error
-		path, err = configPath()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find config directory: %v", err)
-		}
+		return nil, errors.New("config file path not provided")
 	}
 
 	if _, statErr := os.Stat(path); statErr != nil && os.IsNotExist(statErr) {
-		cfg := NewDefaultConfig()
-		cfg.path = path
-		writeConfig(path, cfg) // silently try to write new config file
-		return cfg, nil
+		return nil, fmt.Errorf("config file %q not found: %v", path, statErr)
 	}
 
 	file, err := os.Open(path)
@@ -112,13 +70,11 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{}
-	err = json.NewDecoder(file).Decode(cfg)
-	if err != nil {
+	if err = json.NewDecoder(file).Decode(cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config file %q: %v", path, err)
 	}
 
-	err = cfg.Init()
-	if err != nil {
+	if err = cfg.Init(); err != nil {
 		return nil, fmt.Errorf("%s: failed to initialize config struct: %v", path, err)
 	}
 

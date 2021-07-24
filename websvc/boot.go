@@ -21,6 +21,10 @@ func Start() {
 	}
 
 	srv := &server{}
-	srv.init()
+	err = srv.init()
+	if err != nil {
+		die(fmt.Errorf("server initialization failed: %v", err))
+	}
+
 	srv.run()
 }
