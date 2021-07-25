@@ -45,7 +45,15 @@ type AtlasAuth struct {
 
 // InfluxDB
 type InfluxDBConf struct {
-	Net Net `json:"net"`
+	Organization string       `json:"organization"`
+	Net          Net          `json:"net"`
+	Auth         InfluxDBAuth `json:"auth"`
+}
+
+// InfluxDBAuth
+type InfluxDBAuth struct {
+	TokenFile string `json:"token_file"`
+	Token     string `json:"-"`
 }
 
 // Log
@@ -68,6 +76,10 @@ func (cfg *Config) Init() error {
 		return err
 	}
 
+	if cfg.Net.Protocol != HTTPString {
+		return fmt.Errorf("invalid protocol: http is the only one currently supported")
+	}
+
 	if err = validateNetConf(&cfg.Atlas.Net); err != nil {
 		return err
 	}
@@ -79,7 +91,20 @@ func (cfg *Config) Init() error {
 			return fmt.Errorf("failed to read Atlas API key: %v", err)
 		}
 		cfg.Atlas.Auth.Key = key
-	} // FIXME: What if key file is not specified?
+	} // FIXME: What if key file is not provided?
+
+	if cfg.Influx.Organization == "" {
+		return fmt.Errorf("invalid InfluxDB organization: organization cannot be empty")
+	}
+
+	cfg.Influx.Auth.Token = ""
+	if cfg.Influx.Auth.TokenFile != "" {
+		token, err := readToken(cfg.Influx.Auth.TokenFile)
+		if err != nil {
+			return fmt.Errorf("failed to read InfluxDB token: %v", err)
+		}
+		cfg.Influx.Auth.Token = token
+	} // FIXME: What if token file is not provided?
 
 	if finfo, statErr := os.Stat(cfg.Log.Dir); statErr != nil && os.IsNotExist(statErr) {
 		return fmt.Errorf("log path %q doesn't exist", cfg.Log.Dir)
@@ -88,6 +113,14 @@ func (cfg *Config) Init() error {
 	}
 
 	return nil
+}
+
+func (net *Net) GetAddr() string {
+	return fmt.Sprintf("%s:%d", net.DNSName, net.Port)
+}
+
+func (net *Net) GetBaseURL() string {
+	return fmt.Sprintf("%s://%s:%d", net.Protocol, net.DNSName, net.Port)
 }
 
 func validateNetConf(net *Net) error {

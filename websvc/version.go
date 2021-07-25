@@ -1,3 +1,3 @@
 package websvc
 
-var Version = "0.1"
+var version = "0.1"

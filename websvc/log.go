@@ -18,16 +18,6 @@ type logstruct struct {
 	errorLogger *logger
 }
 
-// ignores all errors
-func (L *logstruct) finalize() {
-	if L.infoLogger.file != nil {
-		L.infoLogger.file.Close()
-	}
-	if L.errorLogger.file != nil {
-		L.errorLogger.file.Close()
-	}
-}
-
 func (L *logstruct) info(format string, v ...interface{}) {
 	L.infoLogger.backend.Printf(format, v...)
 }
@@ -75,6 +65,16 @@ func (L *logstruct) init(serverId string) error {
 	return nil
 }
 
+// FIXME: Handle errors.
+func (L *logstruct) finalize() {
+	if L.infoLogger.file != nil {
+		L.infoLogger.file.Close()
+	}
+	if L.errorLogger.file != nil {
+		L.errorLogger.file.Close()
+	}
+}
+
 func createLogFile(prefix string, suffix string) (*os.File, string, error) {
 	// generate file name
 	filename := fmt.Sprintf(
@@ -93,7 +93,7 @@ func createLogFile(prefix string, suffix string) (*os.File, string, error) {
 	return file, path, nil
 }
 
-// ignores all errors
+// FIXME: Handle errors.
 func updateSymlink(symlink string, target string) {
 	if _, err := os.Lstat(symlink); err == nil {
 		if err := os.Remove(symlink); err == nil {

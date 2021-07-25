@@ -1,36 +1,35 @@
 package websvc
 
 import (
+	"sync"
 	"time"
 )
 
-// FIXME: Confirm timer task stopped.
-
-type taskFn func()
+type taskFn func() string
 
 type timerTask struct {
-	name   string
-	task   taskFn
-	period time.Duration
-	log    *logstruct
-	iter   uint64
-	quit   chan struct{}
+	name    string
+	execute taskFn
+	period  time.Duration
+	log     *logstruct
+	quit    chan struct{}
 }
 
-func (t *timerTask) run() {
+func (t *timerTask) run(wg *sync.WaitGroup) {
 	t.quit = make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(t.period)
+		iter := 0
 		for {
 			select {
 			case <-ticker.C:
-				t.iter += 1
-				t.log.info("timer task %q iteration %d", t.name, t.iter)
-				t.task()
-				t.log.info("timer task %q iteration %d done", t.name, t.iter)
+				iter += 1
+				status := t.execute()
+				t.log.info("[timer task %s] iteration %d: %s", t.name, iter, status)
 			case <-t.quit:
-				t.log.info("timer task %q stopping", t.name)
 				ticker.Stop()
+				t.log.info("[timer task %q] stopped", t.name)
+				wg.Done()
 				return
 			}
 		}

@@ -7,4 +7,4 @@ bin/
 .vscode/
 
 # Ignore files containing keys.
-keys/
+deploy/keys/

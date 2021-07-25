@@ -21,11 +21,11 @@ func validateKey(key string) error {
 	if util.IsValidUUIDv4(key) {
 		return nil
 	} else {
-		return errors.New("provided key is not a valid UUID v4 string")
+		return errors.New("provided key is not a valid UUIDv4 string")
 	}
 }
 
-func readKey(path string, validate bool) (key string, err error) {
+func readFirstLine(path string) (line string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return
@@ -37,20 +37,31 @@ func readKey(path string, validate bool) (key string, err error) {
 	// advance the scanner to the EOL
 	if !scanner.Scan() {
 		// scanning "failed"
-		err = scanner.Err()
-		if err != nil {
+		if err = scanner.Err(); err != nil {
 			// scanning really failed
 			return
 		}
-
 		// scanner encountered EOF, assume line is missing an EOL character
 	}
 
-	key = scanner.Text()
+	line = scanner.Text()
+	return
+}
+
+func readKey(path string, validate bool) (key string, err error) {
+	if key, err = readFirstLine(path); err != nil {
+		return
+	}
+
 	if validate {
 		err = validateKey(key)
 	}
 
+	return
+}
+
+func readToken(path string) (token string, err error) {
+	token, err = readFirstLine(path)
 	return
 }
 

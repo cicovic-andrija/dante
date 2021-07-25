@@ -1,4 +1,4 @@
-package ripe
+package atlas
 
 // ResourceListBase (Object List Resource)
 type ResourceListBase struct {

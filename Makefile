@@ -11,7 +11,7 @@ build:
 
 .PHONY: deploy
 deploy:
-	@./deploy/dev-local.sh
+	@./deploy/local.sh
 
 .PHONY: clean
 clean:

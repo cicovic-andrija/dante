@@ -20,10 +20,14 @@ cat > $CONF <<- EOF
         }
     },
     "influxdb": {
+        "organization": "dante",
         "net": {
             "protocol": "http",
             "dns_name": "localhost",
             "port": 8086
+        },
+        "auth": {
+            "token_file": "$WORKDIR/influxdb.token"
         }
     },
     "log": {

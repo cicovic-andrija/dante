@@ -30,7 +30,7 @@ else
 fi
 
 # Copy secrets
-cp keys/*.key "$WORKDIR"
+cp deploy/keys/* "$WORKDIR"
 
 echo "Starting dantesrv ..."
 run_cmd "$WORKDIR/dantesrv -conf=$CONF"
