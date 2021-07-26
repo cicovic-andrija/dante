@@ -119,7 +119,7 @@ func (net *Net) GetAddr() string {
 	return fmt.Sprintf("%s:%d", net.DNSName, net.Port)
 }
 
-func (net *Net) GetBaseURL() string {
+func (net *Net) GetURLBase() string {
 	return fmt.Sprintf("%s://%s:%d", net.Protocol, net.DNSName, net.Port)
 }
 

@@ -9,14 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/mux"
-
 	"github.com/cicovic-andrija/dante/db"
 	"github.com/cicovic-andrija/dante/util"
-)
-
-const (
-	HTTPClientTimeout = 15 * time.Second
 )
 
 type server struct {
@@ -30,11 +24,11 @@ type server struct {
 	// http server
 	httpServer *http.Server
 	httpWg     *sync.WaitGroup
-	router     *mux.Router
+	router     http.Handler
 
 	// clients
 	httpClient *http.Client
-	dbcli      *db.Client
+	database   *db.Client
 
 	// timer tasks
 	timerTasks  []*timerTask
@@ -60,12 +54,15 @@ func (s *server) init() error {
 	s.log.info("environment: %s", cfg.Env)
 
 	s.httpInit()
-	s.httpClientInit()
-	s.dbinit()
+
+	if err = s.dbinit(); err != nil {
+		return err
+	}
 
 	s.timerTaskWg = &sync.WaitGroup{}
 	s.timerTasks = []*timerTask{
-		{name: "get-credits", execute: s.getCredits, period: 10 * time.Second, log: s.log},
+		{name: "get-credits", execute: s.getCredits, period: 10 * time.Minute, log: s.log},
+		{name: "probe-database", execute: s.probeDatabase, period: 30 * time.Minute, log: s.log},
 	}
 
 	return nil
@@ -73,7 +70,7 @@ func (s *server) init() error {
 
 func (s *server) run() {
 	// HTTP
-	go s.httpRun()
+	go s.runHTTP()
 
 	// Timer tasks
 	s.log.info("[main] starting timer tasks ...")
@@ -81,8 +78,6 @@ func (s *server) run() {
 		task.run(s.timerTaskWg)
 		s.timerTaskWg.Add(1)
 	}
-
-	s.log.info("[main] boot sequence completed")
 }
 
 func (s *server) signalShutdown() {
@@ -96,9 +91,11 @@ func (s *server) shutdown() {
 		task.stop()
 	}
 
+	s.database.Close()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	s.httpServer.Shutdown(ctx) // FIXME: Handle errors returned by Shutdown.
+	s.httpServer.Shutdown(ctx) // FIXME: Handle error returned by Shutdown.
 
 	s.timerTaskWg.Wait()
 	s.httpWg.Wait()
@@ -109,13 +106,20 @@ func (s *server) shutdown() {
 
 func (s *server) dbinit() error {
 	// database client
-	s.dbcli = db.NewClient(&cfg.Influx)
+	s.database = db.NewClient(&cfg.Influx)
 
-	if created, err := db.EnsureOrganization(s.dbcli); err != nil {
-		return fmt.Errorf("failed to ensure influxdb org %q is created: %v", s.dbcli.Organization, err)
-	} else if created {
-		s.log.info("[main] influxdb org %q created", s.dbcli.Organization)
+	formatError := func(err error) error {
+		return fmt.Errorf("failed to init database: %v", err)
 	}
+
+	if err := s.database.EnsureOrganization(cfg.Influx.Organization); err != nil {
+		return formatError(err)
+	}
+
+	if err := s.database.EnsureBuckets(); err != nil {
+		return formatError(err)
+	}
+
 	return nil
 }
 

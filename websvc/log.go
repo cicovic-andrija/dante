@@ -76,7 +76,6 @@ func (L *logstruct) finalize() {
 }
 
 func createLogFile(prefix string, suffix string) (*os.File, string, error) {
-	// generate file name
 	filename := fmt.Sprintf(
 		"%s_%s_%s.log",
 		prefix,
