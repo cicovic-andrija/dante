@@ -13,6 +13,11 @@ import (
 	"github.com/cicovic-andrija/dante/util"
 )
 
+const (
+	serverNameHexLength = 6
+	taskPoolInitCap     = 32
+)
+
 type server struct {
 	// server
 	name      string
@@ -30,15 +35,17 @@ type server struct {
 	httpClient *http.Client
 	database   *db.Client
 
+	// measurements
+	measCache *measurementCache
+
 	// timer tasks
-	timerTasks  []*timerTask
-	timerTaskWg *sync.WaitGroup
+	taskManager *timerTaskManager
 }
 
 func (s *server) init() error {
 	var err error
 
-	if s.name, err = util.RandHexString(6); err != nil {
+	if s.name, err = util.RandHexString(serverNameHexLength); err != nil {
 		return err
 	}
 
@@ -59,11 +66,16 @@ func (s *server) init() error {
 		return err
 	}
 
-	s.timerTaskWg = &sync.WaitGroup{}
-	s.timerTasks = []*timerTask{
-		{name: "get-credits", execute: s.getCredits, period: 10 * time.Minute, log: s.log},
-		{name: "probe-database", execute: s.probeDatabase, period: 30 * time.Minute, log: s.log},
+	s.measCache = newMeasurementCache()
+
+	s.taskManager = &timerTaskManager{
+		tasks: make([]*timerTask, 0, taskPoolInitCap),
+		wg:    &sync.WaitGroup{},
 	}
+
+	// default, always-running timer tasks
+	s.taskManager.addTask("get-credits", s.getCredits, 5*time.Minute, s.log)
+	s.taskManager.addTask("probe-database", s.probeDatabase, 10*time.Minute, s.log)
 
 	return nil
 }
@@ -74,10 +86,7 @@ func (s *server) run() {
 
 	// Timer tasks
 	s.log.info("[main] starting timer tasks ...")
-	for _, task := range s.timerTasks {
-		task.run(s.timerTaskWg)
-		s.timerTaskWg.Add(1)
-	}
+	s.taskManager.runAll()
 }
 
 func (s *server) signalShutdown() {
@@ -87,17 +96,14 @@ func (s *server) signalShutdown() {
 func (s *server) shutdown() {
 	s.log.info("[main] shutting down the server ...")
 
-	for _, task := range s.timerTasks {
-		task.stop()
-	}
-
+	s.taskManager.stopAll()
 	s.database.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	s.httpServer.Shutdown(ctx) // FIXME: Handle error returned by Shutdown.
+	s.httpServer.Shutdown(ctx) // TODO: Handle error returned by Shutdown.
 
-	s.timerTaskWg.Wait()
+	s.taskManager.wg.Wait()
 	s.httpWg.Wait()
 
 	s.log.info("[main] server stopped.")
@@ -112,12 +118,16 @@ func (s *server) dbinit() error {
 		return fmt.Errorf("failed to init database: %v", err)
 	}
 
-	if err := s.database.EnsureOrganization(cfg.Influx.Organization); err != nil {
+	if org, err := s.database.EnsureOrganization(cfg.Influx.Organization); err != nil {
 		return formatError(err)
+	} else {
+		s.database.Org = org
 	}
 
-	if err := s.database.EnsureBuckets(); err != nil {
+	if bck, err := s.database.EnsureBucket(db.OperationalDataBucket); err != nil {
 		return formatError(err)
+	} else {
+		s.database.OperDataBucket = bck
 	}
 
 	return nil

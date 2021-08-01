@@ -12,6 +12,14 @@ const (
 	httpClientTimeout = 15 * time.Second
 )
 
+var (
+	NotFound = &ErrorResponse{
+		Title:       http.StatusText(http.StatusNotFound),
+		Code:        http.StatusNotFound,
+		Description: CFEndpointNotFound,
+	}
+)
+
 // ErrorResponse
 type ErrorResponse struct {
 	Title       string `json:"title"`
@@ -84,26 +92,39 @@ func (s *server) makeRequest(req *http.Request, v interface{}) error {
 func (s *server) decodeReqBody(w http.ResponseWriter, r *http.Request, v interface{}) bool {
 	var err error
 	if err = json.NewDecoder(r.Body).Decode(v); err != nil {
-		s.badRequest(w, CFReqDecodingFailed)
+		s.badRequest(w, r, CFReqDecodingFailed)
 	}
 	return err == nil
 }
 
-func (s *server) badRequest(w http.ResponseWriter, msgFmt string, v ...interface{}) {
+func (s *server) badRequest(w http.ResponseWriter, r *http.Request, msgFmt string, v ...interface{}) {
 	errResp := &ErrorResponse{
 		Title:       http.StatusText(http.StatusBadRequest),
 		Code:        http.StatusBadRequest,
 		Description: fmt.Sprintf(msgFmt, v...),
 	}
-	s.httpWriteError(w, errResp)
+	s.httpWriteResponseObject(w, r, http.StatusBadRequest, errResp)
 }
 
-func (s *server) httpWriteError(w http.ResponseWriter, e *ErrorResponse) {
+func (s *server) internalServerError(w http.ResponseWriter, r *http.Request, err error) {
+	s.log.err("%s: internal server error: %v", httpReqInfoPrefix(r), err)
+	errResp := &ErrorResponse{
+		Title:       http.StatusText(http.StatusInternalServerError),
+		Code:        http.StatusInternalServerError,
+		Description: fmt.Sprintf(CFInternalServerErrorFmt, r.Method, r.URL.String()),
+	}
+	s.httpWriteResponseObject(w, r, http.StatusInternalServerError, errResp)
+}
+
+func (s *server) httpWriteResponseObject(w http.ResponseWriter, r *http.Request, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(e.Code)
-	err := json.NewEncoder(w).Encode(e)
-	if err != nil {
-		s.log.err("[http] error response encoding failed: %v", err)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		s.log.err("%s: response object encoding failed: %v", httpReqInfoPrefix(r), err)
 	}
+}
+
+func httpReqInfoPrefix(r *http.Request) string {
+	return fmt.Sprintf("[http] request %s --> %s %s ", r.RemoteAddr, r.Method, r.URL.String())
 }

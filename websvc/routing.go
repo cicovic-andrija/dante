@@ -30,8 +30,32 @@ func (s *server) initRouter() http.Handler {
 		),
 	)
 
+	router.Handle(
+		"/api/measurements",
+		Adapt(
+			http.HandlerFunc(s.measurementsHandler),
+			s.logRequest,
+			s.allowMethods(http.MethodGet, http.MethodPut),
+		),
+	)
+
+	router.Handle(
+		"/api/measurements/{id:[0-9a-f]+}",
+		Adapt(
+			variableRouteHandler(s.singleMeasurementHandler),
+			s.logRequest,
+			s.allowMethods(http.MethodGet, http.MethodDelete),
+		),
+	)
+
 	// catch all
 	router.PathPrefix("/").HandlerFunc(s.invalidEndpointHandler)
 
 	return router
+}
+
+func variableRouteHandler(handler func(http.ResponseWriter, *http.Request, map[string]string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler(w, r, mux.Vars(r))
+	}
 }

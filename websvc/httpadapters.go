@@ -21,7 +21,7 @@ func (s *server) allowMethods(methods ...string) Adapter {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if found := util.SearchForString(r.Method, methods...); !found {
-				s.badRequest(w, CFMethodNotAllowedFmt, r.Method)
+				s.badRequest(w, r, CFMethodNotAllowedFmt, r.Method)
 				return
 			}
 			// call original handler
@@ -34,11 +34,8 @@ func (s *server) allowMethods(methods ...string) Adapter {
 
 func (s *server) logRequest(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.log.info(
-			"[http] request: %s %s",
-			r.Method,
-			r.URL.Path,
-		)
+		s.log.info("%s: accepted", httpReqInfoPrefix(r))
+
 		// call original handler
 		h.ServeHTTP(w, r)
 	})

@@ -1,7 +1,6 @@
 package websvc
 
 import (
-	"encoding/json"
 	"net/http"
 )
 
@@ -11,17 +10,8 @@ const (
 	InvalidOperationFmt = "invalid operation: %s"
 )
 
-// Control
-type Control struct {
-	Operation string `json:"operation"`
-}
-
-type status struct {
-	Status string `json:"status"`
-}
-
 func (s *server) controlHandler(w http.ResponseWriter, r *http.Request) {
-	ctrl := &Control{}
+	ctrl := &control{}
 	if ok := s.decodeReqBody(w, r, ctrl); !ok {
 		return
 	}
@@ -30,10 +20,9 @@ func (s *server) controlHandler(w http.ResponseWriter, r *http.Request) {
 	case OperationShutdown:
 		s.signalShutdown()
 	default:
-		s.badRequest(w, CFInvalidOperationFmt, ctrl.Operation)
+		s.badRequest(w, r, CFInvalidOperationFmt, ctrl.Operation)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(&status{Status: CFSuccess}) // FIXME: Handle error.
+	s.httpWriteResponseObject(w, r, http.StatusOK, &status{Status: CFSuccess})
 }

@@ -2,29 +2,12 @@ package websvc
 
 import (
 	"fmt"
-	"net/http"
 
-	"github.com/cicovic-andrija/dante/atlas"
 	"github.com/cicovic-andrija/dante/db"
 )
 
-func (s *server) getCredits() (status string, failed bool) {
-	var (
-		reqParams = &atlas.ReqParams{Key: cfg.Atlas.Auth.Key}
-		credit    = &atlas.Credit{}
-		req       *http.Request
-		err       error
-	)
-
-	req, err = atlas.PrepareRequest(http.MethodGet, atlas.CreditsEndpoint, nil, reqParams)
-
-	if err == nil {
-		err = s.makeRequest(req, credit)
-	}
-
-	if err == nil && credit.Error.Status != 0 {
-		err = fmt.Errorf("request failed (%s %d): %s", credit.Error.Title, credit.Error.Status, credit.Error.Detail)
-	}
+func (s *server) getCredits(args ...interface{} /* unused */) (status string, failed bool) {
+	credit, err := s.httpGetCredits()
 
 	if err == nil {
 		err = s.database.WriteCreditBalance(credit.CurrentBalance)
@@ -37,7 +20,7 @@ func (s *server) getCredits() (status string, failed bool) {
 	return timerTaskFailure(err)
 }
 
-func (s *server) probeDatabase() (status string, failed bool) {
+func (s *server) probeDatabase(args ...interface{} /* unused */) (status string, failed bool) {
 	var (
 		report = &db.HealthReport{}
 		err    error

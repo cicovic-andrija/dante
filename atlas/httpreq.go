@@ -1,38 +1,35 @@
 package atlas
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 )
 
-const (
-	URLBase = "https://atlas.ripe.net:443/api/v2"
-
-	CreditsEndpoint = URLBase + "/credits"
-
-	AuthorizationHeader = "Authorization"
-	AuthorizationFmt    = "Key %s"
-
-	ContentTypeHeader = "Content-Type"
-	ContentType       = "application/json"
-)
-
 type ReqParams struct {
-	Key string
+	Method string
+	Key    string
+	Body   interface{}
 }
 
-func PrepareRequest(method string, url string, body io.Reader, reqParams *ReqParams) (*http.Request, error) {
+func PrepareRequest(url string, reqParams *ReqParams) (*http.Request, error) {
 	var (
 		req *http.Request
 		err error
 	)
 
-	switch method {
+	switch reqParams.Method {
 	case http.MethodGet:
-		req, err = http.NewRequest(method, url, nil)
+		req, err = http.NewRequest(http.MethodGet, url, nil)
+	case http.MethodPost:
+		var b []byte
+		b, err = json.Marshal(reqParams.Body)
+		if err == nil {
+			req, err = http.NewRequest(http.MethodPost, url, bytes.NewReader(b))
+		}
 	default:
-		return nil, fmt.Errorf("method %q is invalid or not supported", method)
+		return nil, fmt.Errorf("method %q is invalid or not supported", reqParams.Method)
 	}
 
 	if err != nil {
@@ -42,6 +39,10 @@ func PrepareRequest(method string, url string, body io.Reader, reqParams *ReqPar
 	req.Header.Set(
 		AuthorizationHeader,
 		fmt.Sprintf(AuthorizationFmt, reqParams.Key),
+	)
+	req.Header.Set(
+		ContentTypeHeader,
+		ContentType,
 	)
 
 	return req, nil

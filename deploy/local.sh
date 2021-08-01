@@ -12,7 +12,7 @@ CONF="$WORKDIR/conf.json"
 ENV="dev"
 TCP_PORT=8080
 
-echo -n "Creating working directory $WORKDIR ... "
+echo -n "Creating working directory tree $WORKDIR ... "
 mkdir -p "$WORKDIR"
 mkdir -p "$LOGDIR"
 echo "Done."
