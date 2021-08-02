@@ -1,13 +1,6 @@
 package atlas
 
-// ResourceListBase (Object List Resource)
-type ResourceListBase struct {
-	Count int64  `json:"count"`
-	Next  string `json:"next"`
-	Prev  string `json:"previous"`
-}
-
-// ResourceBase (Object Detail Resource)
+// ResourceBase (Object Detail Resource in RIPE Atlas Documentation)
 type ResourceBase struct {
 	Id   int64  `json:"id"`
 	Type string `json:"type"`
@@ -58,6 +51,35 @@ type Measurement struct {
 	Description   string `json:"description"`
 	IsPublic      bool   `json:"is_public"`
 	Error         Error  `json:"error"`
+}
+
+// MeasurementResults
+type MeasurementResults []SingleMeasurementResult
+
+// SingleMeasurementResult
+type SingleMeasurementResult struct {
+	FirmwareVersion int32    `json:"fw"`
+	Timestamp       int64    `json:"timestamp"`
+	Results         []Result `json:"result"`
+}
+
+// Result
+type Result struct {
+	// All firmware versions
+	BodySize   int64   `json:"bsize"`
+	HeaderSize int64   `json:"hsize"`
+	Result     int32   `json:"res"`
+	RT         float64 `json:"rt"`
+
+	// Firmware version 4400
+	Src  string `json:"srcaddr"`
+	Addr string `json:"addr"`
+	Mode string `json:"mode"`
+
+	// Firmware version 4460,4540,4570,4610,4750,5000
+	SrcAddr string `json:"src_addr"`
+	DstAddr string `json:"dst_addr"`
+	Method  string `json:"method"`
 }
 
 // Credit

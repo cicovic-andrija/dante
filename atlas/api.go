@@ -1,12 +1,17 @@
 package atlas
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Endpoint-related constants
 const (
-	URLBase              = "https://atlas.ripe.net:443/api/v2"
-	CreditsEndpoint      = URLBase + "/credits"
-	MeasurementsEndpoint = URLBase + "/measurements"
+	URLBase                       = "https://atlas.ripe.net:443/api/v2"
+	CreditsEndpoint               = URLBase + "/credits"
+	MeasurementsEndpoint          = URLBase + "/measurements"
+	MeasurementResultsPathSuffix  = "/results"
+	MeasurementResultsEndpointFmt = MeasurementsEndpoint + "/%d" + MeasurementResultsPathSuffix
 )
 
 // HTTP headers
@@ -39,3 +44,7 @@ var (
 	ValidProbeRequestTypes    = []string{"area", "country", "asn"}
 	ValidProbeRequestTypesStr = strings.Join(ValidProbeRequestTypes, ",")
 )
+
+func MeasurementResultsURL(measurementId int64) string {
+	return fmt.Sprintf(MeasurementResultsEndpointFmt, measurementId)
+}

@@ -27,9 +27,9 @@ type probeReq struct {
 }
 
 type measurement struct {
-	Id     string `json:"id"`
-	Bucket string `json:"bucket"`
-	URL    string `json:"url"`
+	Id         string `json:"id"`
+	BucketName string `json:"bucket_name"`
+	URL        string `json:"url"`
 
 	backendIDs []int64        `json:"-"`
 	bucket     *domain.Bucket `json:"-"`

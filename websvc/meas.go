@@ -96,7 +96,7 @@ func (s *server) mintMeasurement(backendIDs []int64) (*measurement, error) {
 
 	meas := &measurement{
 		Id:         id,
-		Bucket:     fmt.Sprintf(measBucketNameFmt, id),
+		BucketName: fmt.Sprintf(measBucketNameFmt, id),
 		URL:        "",
 		backendIDs: backendIDs,
 	}
@@ -107,20 +107,69 @@ func (s *server) mintMeasurement(backendIDs []int64) (*measurement, error) {
 	return meas, nil
 }
 
-func (s *server) scheduleWorker(meas *measurement) {
+func (s *server) scheduleWorker(meas *measurement) error {
+	// first ensure there is a bucket for writing data
+	if meas.bucket == nil {
+		if bck, err := s.database.EnsureBucket(meas.BucketName); err != nil {
+			return err
+		} else {
+			meas.bucket = bck
+		}
+	}
+
 	task := &timerTask{
 		name:    meas.Id,
 		execute: s.updateMeasurementResults,
-		period:  5 * time.Minute,
+		period:  10 * time.Second,
 		log:     s.log,
 	}
 
 	s.taskManager.scheduleTask(task, meas)
+
+	return nil
 }
 
 // Intended to be run as a timer task, thus the signature.
 func (s *server) updateMeasurementResults(args ...interface{}) (status string, failed bool) {
+	// convert generic argument to measurement this task is tracking
 	meas := args[0].(*measurement)
-	s.log.info("Working on measurement %s", meas.Id)
-	return timerTaskSuccess("Successful...")
+
+	for _, backendID := range meas.backendIDs {
+		// fetch results
+		req, err := atlas.PrepareRequest(
+			atlas.MeasurementResultsURL(backendID),
+			&atlas.ReqParams{
+				Method: http.MethodGet,
+				Key:    cfg.Atlas.Auth.Key,
+			},
+		)
+		if err != nil {
+			// TODO: Maybe continue instead?
+			return timerTaskFailure(err)
+		}
+		s.log.info(req.URL.String())
+
+		var results atlas.MeasurementResults
+		if err = s.makeRequest(req, &results); err != nil {
+			// TODO: Maybe continue instead?
+			return timerTaskFailure(err)
+		}
+
+		s.log.info("ID: %d, Length: %d", backendID, len(results))
+		s.log.info("%+v", results)
+
+		for _, result := range results {
+			for _, res := range result.Results {
+				s.database.WriteSingleMeasurementResult(
+					meas.BucketName,
+					backendID,
+					res.RT,
+					time.Unix(result.Timestamp, 0),
+				)
+			}
+			// TODO: Handle errors.
+		}
+	}
+
+	return timerTaskSuccess("done.")
 }
