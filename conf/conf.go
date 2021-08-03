@@ -6,13 +6,14 @@ import (
 	"os"
 )
 
+// Various constants used throughout the package.
 const (
 	MaxPortNumber = 65535
 	HTTPString    = "http"
 	HTTPSString   = "https"
 )
 
-// Config
+// Config specifies server configuration.
 type Config struct {
 	Env    string       `json:"env"`
 	Net    Net          `json:"net"`
@@ -23,48 +24,55 @@ type Config struct {
 	path string `json:"-"`
 }
 
-// Net
+// Net specifies a network configuration.
 type Net struct {
 	Protocol string `json:"protocol"`
 	DNSName  string `json:"dns_name"`
 	Port     int    `json:"port"`
 }
 
-// AtlasConf
+// AtlasConf specifies configuration values
+// needed for interaction with the Atlas API.
 type AtlasConf struct {
 	Net  Net       `json:"net"`
 	Auth AtlasAuth `json:"auth"`
 }
 
-// AtlasAuth
+// AtlasAuth specifies configuration values
+// needed for authentication with the Atlas API.
 type AtlasAuth struct {
 	KeyFile     string `json:"key_file"`
 	Key         string `json:"-"`
 	ValidateKey bool   `json:"validate_key"`
 }
 
-// InfluxDB
+// InfluxDB specifies configuration values
+// needed for interaction with the InfluxDB database.
 type InfluxDBConf struct {
 	Organization string       `json:"organization"`
 	Net          Net          `json:"net"`
 	Auth         InfluxDBAuth `json:"auth"`
 }
 
-// InfluxDBAuth
+// InfluxDBAuth specifies configuration values
+// needed for authentication with the InfluxDB database.
 type InfluxDBAuth struct {
 	TokenFile string `json:"token_file"`
 	Token     string `json:"-"`
 }
 
-// Log
+// Log specifies logging configuration.
 type Log struct {
 	Dir string `json:"dir"`
 }
 
+// Path returns absolute path to the configuration file,
+// from which the configuration was loaded.
 func (cfg *Config) Path() string {
 	return cfg.path
 }
 
+// Init validates and initializes the Config struct.
 func (cfg *Config) Init() error {
 	var err error
 
@@ -91,7 +99,7 @@ func (cfg *Config) Init() error {
 			return fmt.Errorf("failed to read Atlas API key: %v", err)
 		}
 		cfg.Atlas.Auth.Key = key
-	} // FIXME: What if key file is not provided?
+	} // TODO: What if key file is not provided?
 
 	if cfg.Influx.Organization == "" {
 		return fmt.Errorf("invalid InfluxDB organization: organization cannot be empty")
@@ -104,7 +112,7 @@ func (cfg *Config) Init() error {
 			return fmt.Errorf("failed to read InfluxDB token: %v", err)
 		}
 		cfg.Influx.Auth.Token = token
-	} // FIXME: What if token file is not provided?
+	} // TODO: What if token file is not provided?
 
 	if finfo, statErr := os.Stat(cfg.Log.Dir); statErr != nil && os.IsNotExist(statErr) {
 		return fmt.Errorf("log path %q doesn't exist", cfg.Log.Dir)
@@ -115,10 +123,14 @@ func (cfg *Config) Init() error {
 	return nil
 }
 
+// GetAddr returns a net address in format dnsname:port,
+// read from a network configuration.
 func (net *Net) GetAddr() string {
 	return fmt.Sprintf("%s:%d", net.DNSName, net.Port)
 }
 
+// GetURLBase returns a base endpoint (URL) in format protocol://dnsname:port,
+// read from a network configuration.
 func (net *Net) GetURLBase() string {
 	return fmt.Sprintf("%s://%s:%d", net.Protocol, net.DNSName, net.Port)
 }

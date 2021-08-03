@@ -65,7 +65,7 @@ func (L *logstruct) init(serverId string) error {
 	return nil
 }
 
-// FIXME: Handle errors.
+// Ignores errors encountered on file closure.
 func (L *logstruct) finalize() {
 	if L.infoLogger.file != nil {
 		L.infoLogger.file.Close()
@@ -92,7 +92,7 @@ func createLogFile(prefix string, suffix string) (*os.File, string, error) {
 	return file, path, nil
 }
 
-// FIXME: Handle errors.
+// Ignores errors with symlink operations.
 func updateSymlink(symlink string, target string) {
 	if _, err := os.Lstat(symlink); err == nil {
 		if err := os.Remove(symlink); err == nil {

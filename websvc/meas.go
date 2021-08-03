@@ -160,7 +160,7 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 
 		for _, result := range results {
 			for _, res := range result.Results {
-				s.database.WriteSingleMeasurementResult(
+				s.database.WriteHTTPMeasurementResult(
 					meas.BucketName,
 					backendID,
 					res.RT,

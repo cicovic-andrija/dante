@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 )
 
+// RandHexString returns a string of a specified length,
+// that consists of hexadecimal digits.
 func RandHexString(n int) (string, error) {
 	if n < 1 {
 		return "", nil

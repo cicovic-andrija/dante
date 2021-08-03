@@ -62,6 +62,23 @@ type timerTaskManager struct {
 	wg    *sync.WaitGroup
 }
 
+// TODO: Implement smart slice inserting.
+func (t *timerTaskManager) scheduleTask(task *timerTask, args ...interface{}) {
+	t.Lock()
+	t.tasks = append(t.tasks, task)
+	task.run(t.wg, args...)
+	t.wg.Add(1)
+	t.Unlock()
+}
+
+func (t *timerTaskManager) stopAll() {
+	t.Lock()
+	for _, task := range t.tasks {
+		task.stop()
+	}
+	t.Unlock()
+}
+
 // This is just a help method to be used during server boot.
 // It should not be used later.
 func (t *timerTaskManager) addTask(name string, fn taskFn, period time.Duration, log *logstruct) {
@@ -80,22 +97,6 @@ func (t *timerTaskManager) runAll() {
 	for _, task := range t.tasks {
 		task.run(t.wg)
 		t.wg.Add(1)
-	}
-	t.Unlock()
-}
-
-func (t *timerTaskManager) scheduleTask(task *timerTask, args ...interface{}) {
-	t.Lock()
-	t.tasks = append(t.tasks, task)
-	task.run(t.wg, args...)
-	t.wg.Add(1)
-	t.Unlock()
-}
-
-func (t *timerTaskManager) stopAll() {
-	t.Lock()
-	for _, task := range t.tasks {
-		task.stop()
 	}
 	t.Unlock()
 }

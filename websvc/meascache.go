@@ -27,6 +27,12 @@ func (m *measurementCache) get(id string) (meas *measurement, ok bool) {
 	return
 }
 
+func (m *measurementCache) del(id string) {
+	m.Lock()
+	delete(m.measurements, id)
+	m.Unlock()
+}
+
 func (m *measurementCache) getAll() []*measurement {
 	m.RLock()
 	defer m.RUnlock()
@@ -35,10 +41,4 @@ func (m *measurementCache) getAll() []*measurement {
 		measurements = append(measurements, meas)
 	}
 	return measurements
-}
-
-func (m *measurementCache) del(id string) {
-	m.Lock()
-	delete(m.measurements, id)
-	m.Unlock()
 }

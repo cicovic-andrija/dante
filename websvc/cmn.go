@@ -7,7 +7,7 @@ import (
 	"github.com/cicovic-andrija/dante/atlas"
 )
 
-// Client-facing messages.
+// Client-facing messages and message formats in API response objects.
 const (
 	CFEmptyTargetInRequest       = "Target cannot be empty string."
 	CFEndpointNotFound           = "Endpoint not found."

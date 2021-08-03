@@ -8,20 +8,22 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/domain"
 )
 
-//
+// Constants related to management database entities.
 const (
 	OperationalDataBucket = "operational-data"
 
 	HealthEndpointPath = "/health"
 )
 
-// HealthReport
+// HealthReport represents a response object returned
+// by the database API health endpoint.
 type HealthReport struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
 
-// EnsureOrganization
+// EnsureOrganization looks up an organization by name and returns it.
+// If the organization does not exists, it is created.
 func (c *Client) EnsureOrganization(name string) (org *domain.Organization, err error) {
 	var (
 		orgAPI = c.influxClient.OrganizationsAPI()
@@ -46,7 +48,8 @@ func (c *Client) EnsureOrganization(name string) (org *domain.Organization, err 
 	return nil, err
 }
 
-// EnsureBucket
+// EnsureBucket looks up a bucket by name and returns it.
+// If the bucket does not exists, it is created.
 func (c *Client) EnsureBucket(name string) (bck *domain.Bucket, err error) {
 	var (
 		bckAPI = c.influxClient.BucketsAPI()
@@ -69,8 +72,8 @@ func (c *Client) EnsureBucket(name string) (bck *domain.Bucket, err error) {
 	return nil, err
 }
 
-// CreateBucket
-// NOTE: Assumes c.Org is non-nil.
+// CreateBucket creates a bucket.
+// It assumes that c.Org is not nil.
 func (c *Client) CreateBucket(name string) (bck *domain.Bucket, err error) {
 	var (
 		bckAPI = c.influxClient.BucketsAPI()
@@ -86,17 +89,18 @@ func (c *Client) CreateBucket(name string) (bck *domain.Bucket, err error) {
 	return
 }
 
-// ServerURL
+// ServerURL returns the database API base URL.
 func (c *Client) ServerURL() string {
 	return c.influxClient.ServerURL()
 }
 
-// HealthEndpoint
+// HealthEndpoint the database API health endpoint.
 func (c *Client) HealthEndpoint() string {
 	return c.ServerURL() + HealthEndpointPath
 }
 
-// DataExplorerURL
+// DataExplorerURL returns a formatted URL to InfluxDB Data Explorer,
+// for a specified bucket.
 func (c *Client) DataExplorerURL(bucket string) string {
 	return fmt.Sprintf(
 		"%s/orgs/%s/data-explorer?bucket=%s",

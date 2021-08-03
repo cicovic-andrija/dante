@@ -12,19 +12,20 @@ const (
 	httpClientTimeout = 15 * time.Second
 )
 
-var (
-	NotFound = &ErrorResponse{
-		Title:       http.StatusText(http.StatusNotFound),
-		Code:        http.StatusNotFound,
-		Description: CFEndpointNotFound,
-	}
-)
-
-// ErrorResponse
+// ErrorResponse specifies a response object sent in case
+// of an error encountered during request processing.
 type ErrorResponse struct {
 	Title       string `json:"title"`
 	Code        int    `json:"code"`
 	Description string `json:"description"`
+}
+
+// NotFound is a standard ErrorResponse indicating that
+// a resource or a page is not found.
+var NotFound = &ErrorResponse{
+	Title:       http.StatusText(http.StatusNotFound),
+	Code:        http.StatusNotFound,
+	Description: CFEndpointNotFound,
 }
 
 func (s *server) httpInit() {

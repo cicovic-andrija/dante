@@ -7,12 +7,16 @@ import (
 	"net/http"
 )
 
+// ReqParams specifies parameters needed to prepare
+// an HTTP request for the Atlas API.
 type ReqParams struct {
 	Method string
 	Key    string
 	Body   interface{}
 }
 
+// PrepareRequest creates a new HTTP request, serializes the request body,
+// and set the headers expected by the Atlas API.
 func PrepareRequest(url string, reqParams *ReqParams) (*http.Request, error) {
 	var (
 		req *http.Request

@@ -14,6 +14,7 @@ func die(err error) {
 	os.Exit(1)
 }
 
+// Start initializes and starts the web service.
 func Start() {
 	var err error
 

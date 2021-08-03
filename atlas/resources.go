@@ -1,12 +1,14 @@
 package atlas
 
-// ResourceBase (Object Detail Resource in RIPE Atlas Documentation)
+// ResourceBase (Object Detail Resource in RIPE Atlas Documentation).
+// Common fields in all Atlas API resources.
 type ResourceBase struct {
 	Id   int64  `json:"id"`
 	Type string `json:"type"`
 }
 
-// Error
+// Error represents a JSON object returned in an HTTP response
+// to an invalid Atlas API request.
 type Error struct {
 	Detail string `json:"detail"`
 	Title  string `json:"title"`
@@ -14,6 +16,7 @@ type Error struct {
 }
 
 // MeasurementDefinition
+// TODO
 type MeasurementDefinition struct {
 	Type          string `json:"type"`
 	AddressFamily int32  `json:"af"`
@@ -26,25 +29,30 @@ type MeasurementDefinition struct {
 	IsOneOff bool `json:"is_oneoff"`
 }
 
-// ProbeRequest
+// ProbeRequest specifies how the probes are to be selected
+// for a new measurement, in a measurement request.
 type ProbeRequest struct {
 	Requested int64  `json:"requested"`
 	Type      string `json:"type"`
 	Value     string `json:"value"`
 }
 
-// MeasurementRequest
+// MeasurementRequest contains measurement definitions and
+// probe requests needed to create a measurement specification
+// on the Atlas platform.
 type MeasurementRequest struct {
 	Definitions []*MeasurementDefinition `json:"definitions"`
 	Probes      []*ProbeRequest          `json:"probes"`
 }
 
-// MeasurementReqResponse
+// MeasurementReqResponse contains IDs of created measurements,
+// returned as a response to a measurement request
+// from the Atlas API.
 type MeasurementReqResponse struct {
 	Measurements []int64 `json:"measurements"`
 }
 
-// Measurement
+// Measurement represents a measurement resource on the Atlas platform.
 type Measurement struct {
 	ResourceBase
 	AddressFamily int32  `json:"af"`
@@ -53,17 +61,20 @@ type Measurement struct {
 	Error         Error  `json:"error"`
 }
 
-// MeasurementResults
+// MeasurementResults contains an array of single measurement results
+// performed by a single probe.
 type MeasurementResults []SingleMeasurementResult
 
-// SingleMeasurementResult
+// SingleMeasurementResult contains an array of measurements performed
+// by a single probe, for a single measurement.
 type SingleMeasurementResult struct {
 	FirmwareVersion int32    `json:"fw"`
 	Timestamp       int64    `json:"timestamp"`
 	Results         []Result `json:"result"`
 }
 
-// Result
+// Result represents a result of a performed HTTP measurement,
+// done by a probe.
 type Result struct {
 	// All firmware versions
 	BodySize   int64   `json:"bsize"`
@@ -82,8 +93,9 @@ type Result struct {
 	Method  string `json:"method"`
 }
 
-// Credit
+// Credit represents a credit report object,
+// fetched from the Atlas API.
 type Credit struct {
-	Error          Error `json:"error"`
 	CurrentBalance int64 `json:"current_balance"`
+	Error          Error `json:"error"`
 }

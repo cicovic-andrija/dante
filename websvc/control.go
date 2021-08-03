@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+// Control constants.
 const (
 	OperationShutdown = "shutdown"
 

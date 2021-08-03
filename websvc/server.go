@@ -18,8 +18,10 @@ const (
 	taskPoolInitCap     = 32
 )
 
+// server specifies the values and structures needed
+// during the service's run time.
 type server struct {
-	// server
+	// server/control
 	name      string
 	shutdownC chan struct{}
 
@@ -133,6 +135,8 @@ func (s *server) dbinit() error {
 	return nil
 }
 
+// Probably no one will be shutting down the server with a signal,
+// but add a signal handler anyway, it's just 9 lines of code.
 func (s *server) interruptHandler() {
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)

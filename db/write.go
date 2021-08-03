@@ -7,13 +7,15 @@ import (
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 )
 
+// Measurement names.
 const (
 	CreditBalanceMeasurement = "credit-balance"
 	HTTPMeasurement          = "http"
 )
 
-// WriteCreditBalance
-// NOTE: Assumes c.Org is non-nil.
+// WriteCreditBalance writes a single data point
+// of the CreditBalanceMeasurement measurement.
+// It assumes c.Org is not nil.
 func (c *Client) WriteCreditBalance(creditBalance int64) error {
 	var (
 		writeAPI = c.influxClient.WriteAPIBlocking(c.Org.Name, OperationalDataBucket)
@@ -31,8 +33,10 @@ func (c *Client) WriteCreditBalance(creditBalance int64) error {
 	return writeAPI.WritePoint(context, dataPoint)
 }
 
-//
-func (c *Client) WriteSingleMeasurementResult(bucketName string, backendId int64, rt float64, ts time.Time) {
+// WriteMeasurementResult writes a single data point
+// of the HTTPMeasurement measurement to a specified bucket.
+// It assumes c.Org is not nil.
+func (c *Client) WriteHTTPMeasurementResult(bucketName string, backendId int64, rt float64, ts time.Time) {
 	var (
 		writeAPI = c.influxClient.WriteAPIBlocking(c.Org.Name, bucketName)
 	)

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Endpoint-related constants
+// Atlas API endpoint-related constants.
 const (
 	URLBase                       = "https://atlas.ripe.net:443/api/v2"
 	CreditsEndpoint               = URLBase + "/credits"
@@ -14,7 +14,7 @@ const (
 	MeasurementResultsEndpointFmt = MeasurementsEndpoint + "/%d" + MeasurementResultsPathSuffix
 )
 
-// HTTP headers
+// HTTP header constants.
 const (
 	AuthorizationHeader = "Authorization"
 	AuthorizationFmt    = "Key %s"
@@ -22,7 +22,7 @@ const (
 	ContentType         = "application/json"
 )
 
-// Measurement types
+// Measurement type constants.
 const (
 	MeasHTTP       = "http"
 	MeasPing       = "ping"
@@ -33,18 +33,19 @@ const (
 	MeasWiFi       = "wifi"
 )
 
-// Address families
+// Address family constants.
 const (
 	IPv4 = 4
 	IPv6 = 6
 )
 
+// Probe selection types.
 var (
-	// Probe selection types
 	ValidProbeRequestTypes    = []string{"area", "country", "asn"}
 	ValidProbeRequestTypesStr = strings.Join(ValidProbeRequestTypes, ",")
 )
 
+// MeasurementResultsURL returns an endpoint for fetching measurement results.
 func MeasurementResultsURL(measurementId int64) string {
 	return fmt.Sprintf(MeasurementResultsEndpointFmt, measurementId)
 }

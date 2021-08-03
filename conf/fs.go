@@ -65,7 +65,8 @@ func readToken(path string) (token string, err error) {
 	return
 }
 
-// Load reads settings from a config file
+// Load reads configuration from a file.
+// Returns a populated Config struct, or an error. Both cannot be nil.
 func Load() (*Config, error) {
 	if path == "" {
 		return nil, errors.New("config file path not provided")
