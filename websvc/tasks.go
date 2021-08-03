@@ -6,7 +6,7 @@ import (
 	"github.com/cicovic-andrija/dante/db"
 )
 
-// Inteded to be run as a timer task, thus the signature.
+// Intended to be run as a timer task, thus the signature.
 func (s *server) getCredits(args ...interface{} /* unused */) (status string, failed bool) {
 	credit, err := s.httpGetCredits()
 
@@ -21,7 +21,7 @@ func (s *server) getCredits(args ...interface{} /* unused */) (status string, fa
 	return timerTaskFailure(err)
 }
 
-// Inteded to be run as a timer task, thus the signature.
+// Intended to be run as a timer task, thus the signature.
 func (s *server) probeDatabase(args ...interface{} /* unused */) (status string, failed bool) {
 	var (
 		report = &db.HealthReport{}

@@ -36,7 +36,7 @@ func (c *Client) WriteCreditBalance(creditBalance int64) error {
 // WriteMeasurementResult writes a single data point
 // of the HTTPMeasurement measurement to a specified bucket.
 // It assumes c.Org is not nil.
-func (c *Client) WriteHTTPMeasurementResult(bucketName string, backendId int64, rt float64, ts time.Time) {
+func (c *Client) WriteHTTPMeasurementResult(bucketName string, backendId int64, rt float64, ts time.Time) error {
 	var (
 		writeAPI = c.influxClient.WriteAPIBlocking(c.Org.Name, bucketName)
 	)
@@ -45,13 +45,13 @@ func (c *Client) WriteHTTPMeasurementResult(bucketName string, backendId int64, 
 		HTTPMeasurement,
 		nil,
 		map[string]interface{}{
-			"backend-measurement-id": backendId,
-			"rt":                     rt,
+			"backend-id": backendId,
+			"rt":         rt,
 		},
 		ts,
 	)
 
 	context, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
-	writeAPI.WritePoint(context, dataPoint)
+	return writeAPI.WritePoint(context, dataPoint)
 }

@@ -37,14 +37,20 @@ func (s *server) measurementsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		meas, err = s.mintMeasurement(backendIDs.Measurements)
-		if err != nil {
-			// TODO: Delete backend measurements.
+		if meas, err = s.mintMeasurement(backendIDs.Measurements); err != nil {
+			s.deleteBackendMeasurements(backendIDs.Measurements...)
 			s.internalServerError(w, r, err)
 			return
 		}
 
-		s.scheduleWorker(meas)
+		if err = s.scheduleWorker(meas); err != nil {
+			// update server cache
+			s.measCache.del(meas.Id)
+
+			s.deleteBackendMeasurements(backendIDs.Measurements...)
+			s.internalServerError(w, r, err)
+			return
+		}
 
 		s.httpWriteResponseObject(w, r, http.StatusCreated, meas)
 	}

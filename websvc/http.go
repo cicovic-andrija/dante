@@ -83,7 +83,7 @@ func (s *server) makeRequest(req *http.Request, v interface{}) error {
 
 	res, err = s.httpClient.Do(req)
 
-	if err == nil {
+	if err == nil && v != nil {
 		err = json.NewDecoder(res.Body).Decode(&v)
 	}
 

@@ -10,8 +10,9 @@ const (
 	URLBase                       = "https://atlas.ripe.net:443/api/v2"
 	CreditsEndpoint               = URLBase + "/credits"
 	MeasurementsEndpoint          = URLBase + "/measurements"
-	MeasurementResultsPathSuffix  = "/results"
+	MeasurementEndpointFmt        = MeasurementsEndpoint + "/%d"
 	MeasurementResultsEndpointFmt = MeasurementsEndpoint + "/%d" + MeasurementResultsPathSuffix
+	MeasurementResultsPathSuffix  = "/results"
 )
 
 // HTTP header constants.
@@ -48,4 +49,9 @@ var (
 // MeasurementResultsURL returns an endpoint for fetching measurement results.
 func MeasurementResultsURL(measurementId int64) string {
 	return fmt.Sprintf(MeasurementResultsEndpointFmt, measurementId)
+}
+
+// MeasurementURL returns an endpoint for working with a measurement resource.
+func MeasurementURL(measurementId int64) string {
+	return fmt.Sprintf(MeasurementEndpointFmt, measurementId)
 }
