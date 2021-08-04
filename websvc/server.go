@@ -126,10 +126,10 @@ func (s *server) dbinit() error {
 		s.database.Org = org
 	}
 
-	if bck, err := s.database.EnsureBucket(db.OperationalDataBucket); err != nil {
+	if bck, err := s.database.EnsureBucket(db.SystemBucket); err != nil {
 		return formatError(err)
 	} else {
-		s.database.OperDataBucket = bck
+		s.database.SystemBucket = bck
 	}
 
 	return nil

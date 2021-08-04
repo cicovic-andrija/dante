@@ -58,8 +58,13 @@ func timerTaskFailure(err error) (string, bool) {
 type timerTaskManager struct {
 	sync.Mutex
 
-	tasks []*timerTask
-	wg    *sync.WaitGroup
+	// self management
+	quit chan struct{}
+
+	// task management
+	tasks  []*timerTask
+	stopCh chan string
+	wg     *sync.WaitGroup
 }
 
 // TODO: Implement smart slice inserting.
@@ -69,6 +74,10 @@ func (t *timerTaskManager) scheduleTask(task *timerTask, args ...interface{}) {
 	task.run(t.wg, args...)
 	t.wg.Add(1)
 	t.Unlock()
+}
+
+func (t *timerTaskManager) stopTask(name string) {
+
 }
 
 func (t *timerTaskManager) stopAll() {

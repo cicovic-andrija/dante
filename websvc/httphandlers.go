@@ -37,17 +37,14 @@ func (s *server) measurementsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if meas, err = s.mintMeasurement(backendIDs.Measurements); err != nil {
+		if meas, err = s.mintMeasurement(backendIDs.Measurements, measReq.Description); err != nil {
 			s.deleteBackendMeasurements(backendIDs.Measurements...)
 			s.internalServerError(w, r, err)
 			return
 		}
 
 		if err = s.scheduleWorker(meas); err != nil {
-			// update server cache
-			s.measCache.del(meas.Id)
-
-			s.deleteBackendMeasurements(backendIDs.Measurements...)
+			s.disposeMeasurement(meas)
 			s.internalServerError(w, r, err)
 			return
 		}
@@ -85,7 +82,7 @@ func (s *server) creditsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	creditResp.CurrentBalance = credit.CurrentBalance
-	creditResp.URL = s.database.DataExplorerURL(db.OperationalDataBucket)
+	creditResp.URL = s.database.DataExplorerURL(db.SystemBucket)
 
 	s.httpWriteResponseObject(w, r, http.StatusOK, creditResp)
 }

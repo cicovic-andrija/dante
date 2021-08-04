@@ -24,9 +24,9 @@ type MeasurementDefinition struct {
 	Description   string `json:"description"`
 	//StartTime     int64  `json:"start_time"`
 	//StopTime      int64  `json:"stop_time"`
-	Interval int64 `json:"interval"`
-	IsPublic bool  `json:"is_public"`
-	IsOneOff bool  `json:"is_oneoff"`
+	//Interval int64 `json:"interval"`
+	IsPublic bool `json:"is_public"`
+	IsOneOff bool `json:"is_oneoff"`
 }
 
 // ProbeRequest specifies how the probes are to be selected
@@ -70,6 +70,7 @@ type MeasurementResults []SingleMeasurementResult
 type SingleMeasurementResult struct {
 	FirmwareVersion int32    `json:"fw"`
 	Timestamp       int64    `json:"timestamp"`
+	ProbeID         int64    `json:"prb_id"`
 	Results         []Result `json:"result"`
 }
 

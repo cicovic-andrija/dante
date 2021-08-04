@@ -16,9 +16,9 @@ const (
 // Client represents an interface to the InfluxDB database.
 // It wraps the library-provided database client.
 type Client struct {
-	Org            *domain.Organization
-	MeasBucket     *domain.Bucket
-	OperDataBucket *domain.Bucket
+	Org          *domain.Organization
+	MeasBucket   *domain.Bucket
+	SystemBucket *domain.Bucket
 
 	influxClient influxdb2.Client
 }

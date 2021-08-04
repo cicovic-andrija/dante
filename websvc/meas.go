@@ -6,13 +6,24 @@ import (
 	"time"
 
 	"github.com/cicovic-andrija/dante/atlas"
+	"github.com/cicovic-andrija/dante/db"
 	"github.com/cicovic-andrija/dante/util"
 )
+
+// TODO: Stop measurement.
+// TODO: Stop measurement worker.
+// TODO: Start time, end time, interval.
+// TODO: Backend creation error handling.
+// TODO: Restore.
 
 const (
 	measDefDescrFmt   = "IPv4/HTTP measurement for target %s."
 	measBucketNameFmt = "meas-%s"
 	measIDHexLength   = 9
+
+	statusScheduled = "scheduled"
+	statusOngoing   = "ongoing"
+	statusCompleted = "completed"
 )
 
 func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
@@ -47,9 +58,9 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 			AddressFamily: atlas.IPv4,
 			Target:        target,
 			Description:   fmt.Sprintf(measDefDescrFmt, target),
-			Interval:      60,
-			IsPublic:      false,
-			IsOneOff:      false,
+			//Interval:      60,
+			IsPublic: false,
+			IsOneOff: true,
 		}
 		backendReq.Definitions = append(backendReq.Definitions, def)
 	}
@@ -76,7 +87,7 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 		return nil, err
 	}
 
-	// TODO: Handle errors.
+	// TODO: Handle errors here.
 
 	resp := &atlas.MeasurementReqResponse{}
 	if err = s.makeRequest(httpReq, resp); err != nil {
@@ -100,7 +111,7 @@ func (s *server) deleteBackendMeasurements(backendIDs ...int64) {
 	}
 }
 
-func (s *server) mintMeasurement(backendIDs []int64) (*measurement, error) {
+func (s *server) mintMeasurement(backendIDs []int64, description string) (*measurement, error) {
 	var (
 		id  string
 		err error
@@ -110,11 +121,15 @@ func (s *server) mintMeasurement(backendIDs []int64) (*measurement, error) {
 		return nil, err
 	}
 
+	bucket := fmt.Sprintf(measBucketNameFmt, id)
 	meas := &measurement{
-		Id:         id,
-		BucketName: fmt.Sprintf(measBucketNameFmt, id),
-		URL:        "",
-		BackendIDs: backendIDs,
+		Id:          id,
+		BucketName:  bucket,
+		BackendIDs:  backendIDs,
+		Description: description,
+		Status:      statusScheduled,
+
+		URL: s.database.DataExplorerURL(bucket),
 	}
 
 	// update server cache
@@ -123,14 +138,35 @@ func (s *server) mintMeasurement(backendIDs []int64) (*measurement, error) {
 	return meas, nil
 }
 
+func (s *server) disposeMeasurement(meas *measurement) {
+	// delete bucket if it exists
+	if meas.bucket != nil {
+		err := s.database.DeleteBucket(meas.bucket)
+		if err != nil {
+			s.log.err("[mgmt] failed to delete bucket %s", meas.BucketName)
+		}
+		meas.bucket = nil
+	}
+
+	// best effort, ignore all backend API errors
+	s.deleteBackendMeasurements(meas.BackendIDs...)
+
+	// update server cache
+	s.measCache.del(meas.Id)
+}
+
 func (s *server) scheduleWorker(meas *measurement) error {
 	// first ensure there is a bucket for writing data
 	if meas.bucket == nil {
-		if bck, err := s.database.EnsureBucket(meas.BucketName); err != nil {
-			return err
-		} else {
+		if bck, err := s.database.EnsureBucket(meas.BucketName); err == nil {
 			meas.bucket = bck
+		} else {
+			return err
 		}
+	}
+
+	if err := s.updateMeasurementStatus(meas, statusOngoing); err != nil {
+		return err
 	}
 
 	task := &timerTask{
@@ -140,9 +176,20 @@ func (s *server) scheduleWorker(meas *measurement) error {
 		log:     s.log,
 	}
 
+	// after this point, the worker task owns the pointer to meas
 	s.taskManager.scheduleTask(task, meas)
 
 	return nil
+}
+
+func (s *server) updateMeasurementStatus(meas *measurement, status string) error {
+	meas.Status = status
+	return s.database.WriteMeasurementMetadata(
+		meas.Id,
+		meas.Description,
+		meas.Status,
+		meas.BackendIDs,
+	)
 }
 
 // Intended to be run as a timer task, thus the signature.
@@ -181,12 +228,13 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 		// TODO: Implement smart updating.
 		for _, probeResult := range results {
 			for _, result := range probeResult.Results {
-				err = s.database.WriteHTTPMeasurementResult(
-					meas.BucketName,
-					id,
-					result.RT,
-					time.Unix(probeResult.Timestamp, 0),
-				)
+				httpData := &db.HTTPData{
+					BackendID:     id,
+					ProbeID:       probeResult.ProbeID,
+					RoundTripTime: result.RT,
+					Timestamp:     time.Unix(probeResult.Timestamp, 0),
+				}
+				err = s.database.WriteHTTPMeasurementResult(meas.BucketName, httpData)
 				if err != nil {
 					recordError(fmt.Errorf("writing data point failed for %d: %v", id, err))
 					continue

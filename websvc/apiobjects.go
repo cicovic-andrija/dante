@@ -18,6 +18,7 @@ type creditResp struct {
 type measurementReq struct {
 	Targets       []string   `json:"targets"`
 	ProbeRequests []probeReq `json:"probe_requests"`
+	Description   string     `json:"description"`
 }
 
 type probeReq struct {
@@ -27,10 +28,13 @@ type probeReq struct {
 }
 
 type measurement struct {
-	Id         string  `json:"id"`
-	BucketName string  `json:"bucket_name"`
-	URL        string  `json:"url"`
-	BackendIDs []int64 `json:"backend_ids"`
+	Id          string  `json:"id"`
+	BucketName  string  `json:"bucket_name"`
+	BackendIDs  []int64 `json:"backend_ids"`
+	Description string  `json:"description"`
+	Status      string  `json:"status"`
+
+	URL string `json:"url"`
 
 	bucket *domain.Bucket `json:"-"`
 }

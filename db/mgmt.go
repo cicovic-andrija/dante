@@ -10,7 +10,7 @@ import (
 
 // Constants related to management database entities.
 const (
-	OperationalDataBucket = "operational-data"
+	SystemBucket = "system"
 
 	HealthEndpointPath = "/health"
 )
@@ -87,6 +87,17 @@ func (c *Client) CreateBucket(name string) (bck *domain.Bucket, err error) {
 	}
 
 	return
+}
+
+// DeleteBucket deletes a bucket.
+func (c *Client) DeleteBucket(bck *domain.Bucket) error {
+	var (
+		bckAPI = c.influxClient.BucketsAPI()
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	return bckAPI.DeleteBucket(ctx, bck)
 }
 
 // ServerURL returns the database API base URL.
