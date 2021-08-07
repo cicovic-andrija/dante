@@ -16,7 +16,7 @@ func newMeasurementCache() *measurementCache {
 
 func (c *measurementCache) insert(meas *measurement) {
 	c.Lock()
-	c.measurements[meas.Id] = meas
+	c.measurements[meas.ID] = meas
 	c.Unlock()
 }
 

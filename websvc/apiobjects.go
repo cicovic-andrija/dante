@@ -8,6 +8,7 @@ type control struct {
 
 type status struct {
 	Status string `json:"status"`
+	ID     string `json:"id,omitempty"`
 }
 
 type creditResp struct {
@@ -16,9 +17,14 @@ type creditResp struct {
 }
 
 type measurementReq struct {
+	// mandatory fields
 	Targets       []string   `json:"targets"`
 	ProbeRequests []probeReq `json:"probe_requests"`
 	Description   string     `json:"description"`
+
+	// optional fields
+	//StartTimeUTC *string `json:"start_time_utc"`
+	//EndTimeUTC   *string `json:"end_time_utc"`
 }
 
 type probeReq struct {
@@ -28,13 +34,21 @@ type probeReq struct {
 }
 
 type measurement struct {
-	Id          string  `json:"id"`
-	BucketName  string  `json:"bucket_name"`
-	BackendIDs  []int64 `json:"backend_ids"`
-	Description string  `json:"description"`
-	Status      string  `json:"status"`
-
-	URL string `json:"url"`
+	ID                  string                `json:"id"`
+	Status              string                `json:"status"`
+	BucketName          string                `json:"bucket_name,omitempty"`
+	Description         string                `json:"description,omitempty"`
+	BackendMeasurements []*backendMeasurement `json:"backend_measurements,omitempty"`
+	Reason              string                `json:"reason,omitempty"`
+	URL                 string                `json:"url,omitempty"`
 
 	bucket *domain.Bucket `json:"-"`
+}
+
+type backendMeasurement struct {
+	ID       int64  `json:"backend_id"`
+	Target   string `json:"target"`
+	TargetIP string `json:"target_ip"`
+
+	status string `json:"-"`
 }

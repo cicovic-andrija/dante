@@ -25,5 +25,5 @@ func (s *server) controlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.httpWriteResponseObject(w, r, http.StatusOK, &status{Status: CFSuccess})
+	s.httpWriteResponseObject(w, r, http.StatusOK, &status{Status: CFStatusSuccess})
 }

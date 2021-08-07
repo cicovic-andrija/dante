@@ -3,7 +3,7 @@ package atlas
 // ResourceBase (Object Detail Resource in RIPE Atlas Documentation).
 // Common fields in all Atlas API resources.
 type ResourceBase struct {
-	Id   int64  `json:"id"`
+	ID   int64  `json:"id"`
 	Type string `json:"type"`
 }
 
@@ -29,11 +29,11 @@ type MeasurementDefinition struct {
 	AddressFamily int32  `json:"af"`
 	Target        string `json:"target"`
 	Description   string `json:"description"`
-	//StartTime     int64  `json:"start_time"`
-	//StopTime      int64  `json:"stop_time"`
-	//Interval int64 `json:"interval"`
-	IsPublic bool `json:"is_public"`
-	IsOneOff bool `json:"is_oneoff"`
+	IsPublic      bool   `json:"is_public"`
+	IsOneOff      bool   `json:"is_oneoff"`
+	StartTime     *int64 `json:"start_time"`
+	StopTime      *int64 `json:"stop_time"`
+	Interval      *int64 `json:"interval"`
 }
 
 // ProbeRequest specifies how the probes are to be selected
@@ -57,15 +57,26 @@ type MeasurementRequest struct {
 // from the Atlas API.
 type MeasurementReqResponse struct {
 	Measurements []int64 `json:"measurements"`
+
+	Error *Error `json:"error"`
 }
 
 // Measurement represents a measurement resource on the Atlas platform.
 type Measurement struct {
 	ResourceBase
-	AddressFamily int32  `json:"af"`
-	Description   string `json:"description"`
-	IsPublic      bool   `json:"is_public"`
-	Error         Error  `json:"error"`
+	AddressFamily int32             `json:"af"`
+	Description   string            `json:"description"`
+	Target        string            `json:"target"`
+	TargetIP      string            `json:"target_ip"`
+	Status        MeasurementStatus `json:"status"`
+
+	Error *Error `json:"error"`
+}
+
+// MeasurementStatus contains status values of a measurement resource.
+type MeasurementStatus struct {
+	ID    int32  `json:"id"`
+	Value string `json:"name"`
 }
 
 // MeasurementResults contains an array of single measurement results
@@ -105,5 +116,6 @@ type Result struct {
 // fetched from the Atlas API.
 type Credit struct {
 	CurrentBalance int64 `json:"current_balance"`
-	Error          Error `json:"error"`
+
+	Error *Error `json:"error"`
 }

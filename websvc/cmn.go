@@ -17,7 +17,13 @@ const (
 	CFInvalidProbeRequestTypeFmt = "Probe request type must be one of: %s"
 	CFMethodNotAllowedFmt        = "Method %s is not allowed."
 	CFReqDecodingFailed          = "Failed to decode request body."
-	CFSuccess                    = "Success."
+	CFCreationFailedFmt          = "Measurement %s creation failed because of a system error."
+	CFStatusSuccess              = "Success."
+	CFStatusAccepted             = "Accepted."
+	CFStatusFailed               = "Failed."
+	CFStatusScheduled            = "Scheduled."
+	CFStatusOngoing              = "Ongoing."
+	CFStatusCompleted            = "Completed."
 )
 
 // This request is issued in multiple places,
@@ -38,7 +44,7 @@ func (s *server) httpGetCredits() (*atlas.Credit, error) {
 		return nil, err
 	}
 
-	if credit.Error.Status != 0 {
+	if credit.Error != nil {
 		err = fmt.Errorf(
 			"client request failed (%s %d): %s",
 			credit.Error.Title, credit.Error.Status, credit.Error.Detail,

@@ -24,8 +24,8 @@ func PrepareRequest(url string, reqParams *ReqParams) (*http.Request, error) {
 	)
 
 	switch reqParams.Method {
-	case http.MethodGet:
-		req, err = http.NewRequest(http.MethodGet, url, nil)
+	case http.MethodGet, http.MethodDelete:
+		req, err = http.NewRequest(reqParams.Method, url, nil)
 	case http.MethodPost:
 		var b []byte
 		b, err = json.Marshal(reqParams.Body)

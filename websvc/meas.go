@@ -27,6 +27,11 @@ const (
 	statusCompleted = "completed"
 )
 
+func freshMeasurementID() (id string, err error) {
+	id, err = util.RandHexString(measIDHexLength)
+	return
+}
+
 func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
 	for _, target := range req.Targets {
 		if target == "" {
@@ -44,6 +49,48 @@ func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
 	}
 
 	return true, ""
+}
+
+func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
+	var (
+		resp *atlas.MeasurementReqResponse
+		meas *measurement
+		err  error
+	)
+
+	commitFailedMeasurement := func() {
+		s.measCache.insert(
+			&measurement{
+				ID:     id,
+				Status: CFStatusFailed,
+				Reason: fmt.Sprintf(CFCreationFailedFmt, id),
+			},
+		)
+	}
+
+	if resp, err = s.createBackendMeasurements(req); err != nil {
+		s.log.err("[mgmt %s] backend measurement creation failed: %v", id, err)
+		commitFailedMeasurement()
+		return
+	}
+
+	if meas, err = s.mintMeasurement(resp.Measurements, req.Description, id); err != nil {
+		s.deleteBackendMeasurements(resp.Measurements...)
+		s.log.err("[mgmt %s] internal creation failed: %v", id, err)
+		commitFailedMeasurement()
+		return
+	}
+
+	if err = s.scheduleWorker(meas); err != nil {
+		s.cleanupMeasurement(meas)
+		s.deleteBackendMeasurements(resp.Measurements...)
+		s.log.err("[mgmt %s] failed to schedule worker: %v", id, err)
+		commitFailedMeasurement()
+		return
+	}
+
+	// commit successfully created measurement
+	s.measCache.insert(meas)
 }
 
 func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.MeasurementReqResponse, error) {
@@ -83,16 +130,20 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 			Body:   backendReq,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Handle errors here.
-
 	resp := &atlas.MeasurementReqResponse{}
 	if err = s.makeRequest(httpReq, resp); err != nil {
 		return nil, err
+	}
+
+	if resp.Error != nil {
+		return nil, fmt.Errorf(
+			"client request failed (%s %d): %s",
+			resp.Error.Title, resp.Error.Status, resp.Error.Detail,
+		)
 	}
 
 	return resp, nil
@@ -101,59 +152,90 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 // Best effort, ignore all errors.
 func (s *server) deleteBackendMeasurements(backendIDs ...int64) {
 	for _, id := range backendIDs {
-		req, _ := atlas.PrepareRequest(
+		req, err := atlas.PrepareRequest(
 			atlas.MeasurementURL(id),
 			&atlas.ReqParams{
 				Method: http.MethodDelete,
 				Key:    cfg.Atlas.Auth.Key,
 			},
 		)
-		s.makeRequest(req, nil)
+		if err == nil {
+			s.makeRequest(req, nil)
+		}
 	}
 }
 
-func (s *server) mintMeasurement(backendIDs []int64, description string) (*measurement, error) {
+func (s *server) mintMeasurement(backendIDs []int64, description string, id string) (*measurement, error) {
 	var (
-		id  string
 		err error
 	)
 
-	if id, err = util.RandHexString(measIDHexLength); err != nil {
-		return nil, err
-	}
+	bucketName := fmt.Sprintf(measBucketNameFmt, id)
 
-	bucket := fmt.Sprintf(measBucketNameFmt, id)
 	meas := &measurement{
-		Id:          id,
-		BucketName:  bucket,
-		BackendIDs:  backendIDs,
+		ID:          id,
+		BucketName:  bucketName,
 		Description: description,
 		Status:      statusScheduled,
-
-		URL: s.database.DataExplorerURL(bucket),
+		URL:         s.database.DataExplorerURL(bucketName),
 	}
 
-	// update server cache
-	s.measCache.insert(meas)
+	// issue requests to the backend API for
+	// backend measurement details
+	if err = s.fetchRetainBackendDetails(meas, backendIDs); err != nil {
+		return nil, err
+	}
 
 	return meas, nil
 }
 
-func (s *server) disposeMeasurement(meas *measurement) {
+func (s *server) fetchRetainBackendDetails(meas *measurement, backendIDs []int64) error {
+	var (
+		req *http.Request
+		err error
+	)
+
+	meas.BackendMeasurements = make([]*backendMeasurement, 0, len(backendIDs))
+
+	for _, id := range backendIDs {
+		req, err = atlas.PrepareRequest(
+			atlas.MeasurementURL(id),
+			&atlas.ReqParams{
+				Method: http.MethodGet,
+				Key:    cfg.Atlas.Auth.Key,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		resp := &atlas.Measurement{}
+		if err = s.makeRequest(req, resp); err != nil {
+			return err
+		}
+
+		bm := &backendMeasurement{
+			ID:       id,
+			Target:   resp.Target,
+			TargetIP: resp.TargetIP,
+
+			status: resp.Status.Value,
+		}
+		meas.BackendMeasurements = append(meas.BackendMeasurements, bm)
+	}
+
+	return nil
+}
+
+func (s *server) cleanupMeasurement(meas *measurement) {
 	// delete bucket if it exists
 	if meas.bucket != nil {
 		err := s.database.DeleteBucket(meas.bucket)
 		if err != nil {
-			s.log.err("[mgmt] failed to delete bucket %s", meas.BucketName)
+			s.log.err("[mgmt %s] failed to delete bucket %s", meas.ID, meas.BucketName)
 		}
 		meas.bucket = nil
 	}
-
-	// best effort, ignore all backend API errors
-	s.deleteBackendMeasurements(meas.BackendIDs...)
-
-	// update server cache
-	s.measCache.del(meas.Id)
 }
 
 func (s *server) scheduleWorker(meas *measurement) error {
@@ -166,12 +248,12 @@ func (s *server) scheduleWorker(meas *measurement) error {
 		}
 	}
 
-	if err := s.updateMeasurementStatus(meas, statusOngoing); err != nil {
-		return err
-	}
+	//	if err := s.updateMeasurementStatus(meas, statusOngoing); err != nil {
+	//		return err
+	//	}
 
 	task := &timerTask{
-		name:    meas.Id,
+		name:    meas.ID,
 		execute: s.updateMeasurementResults,
 		period:  1 * time.Minute,
 		log:     s.log,
@@ -183,15 +265,15 @@ func (s *server) scheduleWorker(meas *measurement) error {
 	return nil
 }
 
-func (s *server) updateMeasurementStatus(meas *measurement, status string) error {
-	meas.Status = status
-	return s.database.WriteMeasurementMetadata(
-		meas.Id,
-		meas.Description,
-		meas.Status,
-		meas.BackendIDs,
-	)
-}
+//func (s *server) updateMeasurementStatus(meas *measurement, status string) error {
+//	meas.Status = status
+//	return s.database.WriteMeasurementMetadata(
+//		meas.Id,
+//		meas.Description,
+//		meas.Status,
+//		meas.BackendIDs,
+//	)
+//}
 
 // Intended to be run as a timer task, thus the signature.
 func (s *server) updateMeasurementResults(args ...interface{}) (status string, failed bool) {
@@ -207,28 +289,28 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 		}
 	}
 
-	for _, measID := range meas.BackendIDs {
+	for _, backend := range meas.BackendMeasurements {
 
 		req, err := atlas.PrepareRequest(
-			atlas.MeasurementResultsURL(measID),
+			atlas.MeasurementResultsURL(backend.ID),
 			&atlas.ReqParams{
 				Method: http.MethodGet,
 				Key:    cfg.Atlas.Auth.Key,
 			},
 		)
 		if err != nil {
-			recordError(fmt.Errorf("prepare request failed for %d: %v", measID, err))
+			recordError(fmt.Errorf("prepare request failed for %d: %v", backend.ID, err))
 			continue
 		}
 
 		var results atlas.MeasurementResults
 		if err = s.makeRequest(req, &results); err != nil {
-			recordError(fmt.Errorf("request failed for %d: %v", measID, err))
+			recordError(fmt.Errorf("request failed for %d: %v", backend.ID, err))
 			continue
 		}
 
 		for _, probeResults := range results {
-			if err = s.processProbeResults(&probeResults, measID, meas.BucketName); err != nil {
+			if err = s.processProbeResults(&probeResults, backend.ID, meas.BucketName); err != nil {
 				recordError(err)
 				continue
 			}
@@ -242,12 +324,12 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 	}
 }
 
+// TODO: Implement smart updating.
 func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults, measID int64, bucketName string) error {
 	var (
 		probe *atlas.Probe
 		err   error
 	)
-	// TODO: Implement smart updating.
 
 	if probe, err = s.getProbe(probeResults.ProbeID); err != nil {
 		return fmt.Errorf("probe info request failed for probe %d and measurement %d: %v", probeResults.ProbeID, measID, err)
@@ -256,7 +338,7 @@ func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults
 	for _, result := range probeResults.Results {
 		httpData := &db.HTTPData{
 			BackendID:     measID,
-			ProbeID:       probe.Id,
+			ProbeID:       probe.ID,
 			RoundTripTime: result.RT,
 			ASN:           probe.ASNv4,
 			Country:       probe.CountryCode,
@@ -294,6 +376,7 @@ func (s *server) getProbe(id int64) (*atlas.Probe, error) {
 		return nil, err
 	}
 
+	probe = &atlas.Probe{}
 	if err = s.makeRequest(req, probe); err != nil {
 		return nil, err
 	}
@@ -301,7 +384,7 @@ func (s *server) getProbe(id int64) (*atlas.Probe, error) {
 	// update probe cache
 	s.probeInfo.insert(probe)
 	s.log.info("[mgmt] probe info cached: id=%d country=%s asn=%d",
-		probe.Id, probe.CountryCode, probe.ASNv4)
+		probe.ID, probe.CountryCode, probe.ASNv4)
 
 	return probe, nil
 }

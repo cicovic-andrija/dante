@@ -27,6 +27,6 @@ func (t *probeTable) lookup(id int64) (probe *atlas.Probe, ok bool) {
 
 func (t *probeTable) insert(probe *atlas.Probe) {
 	t.Lock()
-	t.probes[probe.Id] = probe
+	t.probes[probe.ID] = probe
 	t.Unlock()
 }

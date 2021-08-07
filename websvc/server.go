@@ -77,7 +77,7 @@ func (s *server) init() error {
 
 	// default, always-running timer tasks
 	s.taskManager.addTask("get-credits", s.getCredits, 5*time.Minute, s.log)
-	s.taskManager.addTask("probe-database", s.probeDatabase, 10*time.Second, s.log)
+	s.taskManager.addTask("probe-database", s.probeDatabase, 10*time.Minute, s.log)
 
 	return nil
 }

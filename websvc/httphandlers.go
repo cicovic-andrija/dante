@@ -3,7 +3,6 @@ package websvc
 import (
 	"net/http"
 
-	"github.com/cicovic-andrija/dante/atlas"
 	"github.com/cicovic-andrija/dante/db"
 )
 
@@ -17,10 +16,9 @@ func (s *server) measurementsHandler(w http.ResponseWriter, r *http.Request) {
 	// HTTP PUT
 	case http.MethodPut:
 		var (
-			err        error
-			measReq    = &measurementReq{}
-			backendIDs *atlas.MeasurementReqResponse
-			meas       *measurement
+			err     error
+			measID  string
+			measReq = &measurementReq{}
 		)
 
 		if ok := s.decodeReqBody(w, r, measReq); !ok {
@@ -32,24 +30,19 @@ func (s *server) measurementsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if backendIDs, err = s.createBackendMeasurements(measReq); err != nil {
+		// create ID early because it must be returned in HTTP response
+		if measID, err = freshMeasurementID(); err != nil {
 			s.internalServerError(w, r, err)
 			return
 		}
 
-		if meas, err = s.mintMeasurement(backendIDs.Measurements, measReq.Description); err != nil {
-			s.deleteBackendMeasurements(backendIDs.Measurements...)
-			s.internalServerError(w, r, err)
-			return
-		}
+		// create measurement in a dedicated thread
+		go s.measurementCreationWorkflow(measReq, measID)
 
-		if err = s.scheduleWorker(meas); err != nil {
-			s.disposeMeasurement(meas)
-			s.internalServerError(w, r, err)
-			return
-		}
-
-		s.httpWriteResponseObject(w, r, http.StatusCreated, meas)
+		s.httpWriteResponseObject(
+			w, r, http.StatusAccepted,
+			&status{Status: CFStatusAccepted, ID: measID},
+		)
 	}
 }
 
