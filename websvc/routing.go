@@ -48,6 +48,15 @@ func (s *server) initRouter() http.Handler {
 		),
 	)
 
+	router.Handle(
+		"/api/measurements/{id:[0-9a-f]+}/control",
+		Adapt(
+			variableRouteHandler(s.measurementControlHandler),
+			s.logRequest,
+			s.allowMethods(http.MethodPost),
+		),
+	)
+
 	// catch all
 	router.PathPrefix("/").HandlerFunc(s.invalidEndpointHandler)
 

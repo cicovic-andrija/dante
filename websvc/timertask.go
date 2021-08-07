@@ -38,7 +38,7 @@ func (t *timerTask) run(wg *sync.WaitGroup, args ...interface{}) {
 				}
 			case <-t.quit:
 				ticker.Stop()
-				t.log.info("[timer task %q] stopped", t.name)
+				t.log.info("[task %s] stopped", t.name)
 				wg.Done()
 				t.stopped = true
 				return
@@ -46,6 +46,8 @@ func (t *timerTask) run(wg *sync.WaitGroup, args ...interface{}) {
 		}
 	}()
 }
+
+// TODO: Remove stopped flag from timerTask?
 
 func (t *timerTask) stop() {
 	close(t.quit)
@@ -115,7 +117,12 @@ func (t *timerTaskManager) scheduleTask(task *timerTask, args ...interface{}) {
 }
 
 func (t *timerTaskManager) stopTask(name string) {
-
+	t.Lock()
+	if task, ok := t.tasks[name]; ok {
+		task.stop()
+		delete(t.tasks, name)
+	}
+	t.Unlock()
 }
 
 func (t *timerTaskManager) stopAll() {

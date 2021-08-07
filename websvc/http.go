@@ -21,11 +21,19 @@ type ErrorResponse struct {
 }
 
 // NotFound is a standard ErrorResponse indicating that
-// a resource or a page is not found.
+// an endpoint or a page is not found.
 var NotFound = &ErrorResponse{
 	Title:       http.StatusText(http.StatusNotFound),
 	Code:        http.StatusNotFound,
 	Description: CFEndpointNotFound,
+}
+
+// ResourceNotFound is a standard ErrorResponse indicating that
+// a resource is not found.
+var ResourceNotFound = &ErrorResponse{
+	Title:       http.StatusText(http.StatusNotFound),
+	Code:        http.StatusNotFound,
+	Description: CFResourceNotFound,
 }
 
 func (s *server) httpInit() {

@@ -9,8 +9,9 @@ type control struct {
 }
 
 type status struct {
-	Status string `json:"status"`
-	ID     string `json:"id,omitempty"`
+	Status      string `json:"status"`
+	Explanation string `json:"explanation,omitempty"`
+	ID          string `json:"id,omitempty"`
 }
 
 type creditResp struct {
@@ -53,5 +54,5 @@ type backendMeasurement struct {
 	Target   string `json:"target"`
 	TargetIP string `json:"target_ip"`
 
-	status string `json:"-"`
+	stopped bool `json:"-"`
 }

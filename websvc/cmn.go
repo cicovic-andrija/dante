@@ -21,18 +21,22 @@ const (
 	CFInvalidOperationFmt        = "Operation %s is invalid."
 	CFInvalidProbeRequestTypeFmt = "Probe request type must be one of: %s"
 	CFInvalidTimeValueFmt        = "Failed to parse time value: %s."
+	CFMeasurementNoStop          = "This measurement cannot be stopped."
 	CFMethodNotAllowedFmt        = "Method %s is not allowed."
 	CFProbeRequestNotSpecified   = "At least one probe request must be specified."
 	CFReqDecodingFailed          = "Failed to decode request body."
+	CFResourceNotFound           = "Resource not found."
 	CFStartTimeNotSpecified      = "Start time not specified."
-	CFStatusAccepted             = "Accepted."
-	CFStatusCompleted            = "Completed."
-	CFStatusFailed               = "Failed."
-	CFStatusOngoing              = "Ongoing."
-	CFStatusScheduled            = "Scheduled."
-	CFStatusStopped              = "Stopped."
-	CFStatusSuccess              = "Success."
 	CFTargetNotSpecified         = "At least one target must be specified."
+
+	CFStatusSuccess = "Success."
+
+	CFStatusCompleted = "Completed."
+	CFStatusFailed    = "Failed."
+	CFStatusOngoing   = "Ongoing."
+	CFStatusQueued    = "Queued."
+	CFStatusScheduled = "Scheduled."
+	CFStatusStopped   = "Stopped."
 )
 
 // This request is issued in multiple places,

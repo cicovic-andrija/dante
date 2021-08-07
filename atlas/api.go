@@ -26,6 +26,7 @@ const (
 
 // Measurement status IDs.
 const (
+	MeasurementStatusIDSpecified = 0
 	MeasurementStatusIDScheduled = 1
 	MeasurementStatusIDOngoing   = 2
 	MeasurementStatusIDStopped   = 4

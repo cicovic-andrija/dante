@@ -114,7 +114,7 @@ func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 	}
 
 	if meas, err = s.mintMeasurement(resp.Measurements, req.Description, id); err != nil {
-		s.deleteBackendMeasurements(resp.Measurements...)
+		s.stopBackendMeasurements(resp.Measurements...)
 		s.log.err("[mgmt %s] internal creation failed: %v", id, err)
 		commitFailedMeasurement()
 		return
@@ -122,7 +122,7 @@ func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 
 	if err = s.scheduleWorker(meas); err != nil {
 		s.cleanupMeasurement(meas)
-		s.deleteBackendMeasurements(resp.Measurements...)
+		s.stopBackendMeasurements(resp.Measurements...)
 		s.log.err("[mgmt %s] failed to schedule worker: %v", id, err)
 		commitFailedMeasurement()
 		return
@@ -191,7 +191,7 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 }
 
 // Best effort, ignore all errors.
-func (s *server) deleteBackendMeasurements(backendIDs ...int64) {
+func (s *server) stopBackendMeasurements(backendIDs ...int64) {
 	for _, id := range backendIDs {
 		req, err := atlas.PrepareRequest(
 			atlas.MeasurementURL(id),
@@ -217,7 +217,7 @@ func (s *server) mintMeasurement(backendIDs []int64, description string, id stri
 		ID:          id,
 		BucketName:  bucketName,
 		Description: description,
-		Status:      CFStatusScheduled,
+		Status:      CFStatusQueued,
 		URL:         s.database.DataExplorerURL(bucketName),
 	}
 
@@ -260,7 +260,7 @@ func (s *server) fetchRetainBackendDetails(meas *measurement, backendIDs []int64
 			Target:   resp.Target,
 			TargetIP: resp.TargetIP,
 
-			status: resp.Status.Value,
+			stopped: resp.Status.ID > atlas.MeasurementStatusIDOngoing,
 		}
 		meas.BackendMeasurements = append(meas.BackendMeasurements, bm)
 	}
@@ -289,10 +289,6 @@ func (s *server) scheduleWorker(meas *measurement) error {
 		}
 	}
 
-	//	if err := s.updateMeasurementStatus(meas, statusOngoing); err != nil {
-	//		return err
-	//	}
-
 	task := &timerTask{
 		name:    meas.ID,
 		execute: s.updateMeasurementResults,
@@ -300,21 +296,13 @@ func (s *server) scheduleWorker(meas *measurement) error {
 		log:     s.log,
 	}
 
+	meas.Status = CFStatusScheduled
+
 	// after this point, the worker task owns the pointer to meas
 	s.taskManager.scheduleTask(task, meas)
 
 	return nil
 }
-
-//func (s *server) updateMeasurementStatus(meas *measurement, status string) error {
-//	meas.Status = status
-//	return s.database.WriteMeasurementMetadata(
-//		meas.Id,
-//		meas.Description,
-//		meas.Status,
-//		meas.BackendIDs,
-//	)
-//}
 
 // Intended to be run as a timer task, thus the signature.
 func (s *server) updateMeasurementResults(args ...interface{}) (status string, failed bool) {
@@ -331,7 +319,6 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 	}
 
 	for _, backend := range meas.BackendMeasurements {
-
 		req, err := atlas.PrepareRequest(
 			atlas.MeasurementResultsURL(backend.ID),
 			&atlas.ReqParams{
@@ -397,6 +384,29 @@ func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults
 	}
 
 	return nil
+}
+
+func (s *server) stopMeasurement(id string) (stat *status, err error) {
+	// stop the worker task in a locked code section because
+	// the measurement object is being updated by the non-worker tread
+	s.measCache.Lock()
+	meas := s.measCache.measurements[id]
+
+	if meas.Status != CFStatusScheduled && meas.Status != CFStatusOngoing {
+		s.measCache.Unlock()
+		return &status{Status: CFStatusFailed, Explanation: CFMeasurementNoStop}, nil
+	}
+
+	s.taskManager.stopTask(id)
+	meas.Status = CFStatusStopped
+	s.measCache.Unlock()
+
+	// best effort, ignore errors
+	for _, backendMeasurement := range meas.BackendMeasurements {
+		s.stopBackendMeasurements(backendMeasurement.ID)
+	}
+
+	return &status{Status: CFStatusSuccess}, nil
 }
 
 func (s *server) getProbe(id int64) (*atlas.Probe, error) {

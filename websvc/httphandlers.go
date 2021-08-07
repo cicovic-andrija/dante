@@ -41,7 +41,7 @@ func (s *server) measurementsHandler(w http.ResponseWriter, r *http.Request) {
 
 		s.httpWriteResponseObject(
 			w, r, http.StatusAccepted,
-			&status{Status: CFStatusAccepted, ID: measID},
+			&status{Status: CFStatusQueued, ID: measID},
 		)
 	}
 }
@@ -54,7 +54,7 @@ func (s *server) singleMeasurementHandler(w http.ResponseWriter, r *http.Request
 		if ok {
 			s.httpWriteResponseObject(w, r, http.StatusOK, meas)
 		} else {
-			s.httpWriteResponseObject(w, r, http.StatusNotFound, NotFound)
+			s.httpWriteResponseObject(w, r, http.StatusNotFound, ResourceNotFound)
 		}
 
 	// HTTP DELETE
@@ -63,10 +63,37 @@ func (s *server) singleMeasurementHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (s *server) measurementControlHandler(w http.ResponseWriter, r *http.Request, routeVars map[string]string) {
+	// HTTP POST
+
+	ctrl := &control{}
+	if ok := s.decodeReqBody(w, r, ctrl); !ok {
+		return
+	}
+
+	if ctrl.Operation != OperationStop {
+		s.badRequest(w, r, CFInvalidOperationFmt, ctrl.Operation)
+		return
+	}
+
+	id := routeVars["id"]
+	if _, found := s.measCache.get(id); !found {
+		s.httpWriteResponseObject(w, r, http.StatusNotFound, ResourceNotFound)
+		return
+	}
+
+	stat, err := s.stopMeasurement(id)
+	if err != nil {
+		s.internalServerError(w, r, err)
+		return
+	}
+
+	s.httpWriteResponseObject(w, r, http.StatusOK, stat)
+}
+
 func (s *server) creditsHandler(w http.ResponseWriter, r *http.Request) {
-	var (
-		creditResp = &creditResp{}
-	)
+	// HTTP GET
+	creditResp := &creditResp{}
 
 	credit, err := s.httpGetCredits()
 	if err != nil {

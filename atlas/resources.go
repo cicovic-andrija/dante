@@ -64,19 +64,15 @@ type MeasurementReqResponse struct {
 // Measurement represents a measurement resource on the Atlas platform.
 type Measurement struct {
 	ResourceBase
-	AddressFamily int32             `json:"af"`
-	Description   string            `json:"description"`
-	Target        string            `json:"target"`
-	TargetIP      string            `json:"target_ip"`
-	Status        MeasurementStatus `json:"status"`
+	AddressFamily int32  `json:"af"`
+	Description   string `json:"description"`
+	Target        string `json:"target"`
+	TargetIP      string `json:"target_ip"`
+	Status        struct {
+		ID int32 `json:"id"`
+	} `json:"status"`
 
 	Error *Error `json:"error"`
-}
-
-// MeasurementStatus contains status values of a measurement resource.
-type MeasurementStatus struct {
-	ID    int32  `json:"id"`
-	Value string `json:"name"`
 }
 
 // MeasurementResults contains an array of single measurement results

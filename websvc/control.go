@@ -7,6 +7,7 @@ import (
 // Control constants.
 const (
 	OperationShutdown = "shutdown"
+	OperationStop     = "stop"
 
 	InvalidOperationFmt = "invalid operation: %s"
 )
