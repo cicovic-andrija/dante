@@ -319,6 +319,11 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 	}
 
 	for _, backend := range meas.BackendMeasurements {
+		// ignore backend measurement if flagged as stopped in a past iteration
+		if backend.stopped {
+			continue
+		}
+
 		req, err := atlas.PrepareRequest(
 			atlas.MeasurementResultsURL(backend.ID),
 			&atlas.ReqParams{
@@ -343,6 +348,56 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 				continue
 			}
 		}
+
+		// fetch backend measurement status from the API and update internal state
+		req, err = atlas.PrepareRequest(
+			atlas.MeasurementURL(backend.ID),
+			&atlas.ReqParams{
+				Method: http.MethodGet,
+				Key:    cfg.Atlas.Auth.Key,
+			},
+		)
+		if err != nil {
+			recordError(fmt.Errorf("prepare request for metadata failed for %d: %v", backend.ID, err))
+			continue
+		}
+
+		resp := &atlas.Measurement{}
+		if err = s.makeRequest(req, resp); err != nil {
+			recordError(fmt.Errorf("request for metadata failed for %d: %v", backend.ID, err))
+			continue
+		}
+
+		if resp.Status.ID > atlas.MeasurementStatusIDOngoing {
+			// this should happen ONLY in case of no errors in this loop iteration
+			backend.stopped = true
+		} else if resp.Status.ID == atlas.MeasurementStatusIDOngoing {
+			// other threads may update measurement status,
+			// so do it in a locked code section
+			s.measCache.Lock()
+			if meas.Status == CFStatusScheduled {
+				meas.Status = CFStatusOngoing
+			}
+			s.measCache.Unlock()
+		}
+	}
+
+	stopWorker := true
+	for _, backend := range meas.BackendMeasurements {
+		if stopWorker = stopWorker && backend.stopped; !stopWorker {
+			break
+		}
+	}
+	if stopWorker {
+		// other threads may update measurement status,
+		// so do it in a locked code section
+		s.measCache.Lock()
+		// stop worker only if it's not stopped externally (by another thread)
+		if meas.Status == CFStatusScheduled || meas.Status == CFStatusOngoing {
+			s.taskManager.stopTask(meas.ID)
+			meas.Status = CFStatusCompleted
+		}
+		s.measCache.Unlock()
 	}
 
 	if accuError == nil {
