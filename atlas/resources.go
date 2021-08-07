@@ -15,6 +15,13 @@ type Error struct {
 	Status int64  `json:"status"`
 }
 
+// Probe represents a probe resource on the Atlas platform.
+type Probe struct {
+	ResourceBase
+	CountryCode string `json:"country_code"`
+	ASNv4       int64  `json:"asn_v4"`
+}
+
 // MeasurementDefinition
 // TODO
 type MeasurementDefinition struct {
@@ -63,11 +70,11 @@ type Measurement struct {
 
 // MeasurementResults contains an array of single measurement results
 // performed by a single probe.
-type MeasurementResults []SingleMeasurementResult
+type MeasurementResults []ProbeMeasurementResults
 
-// SingleMeasurementResult contains an array of measurements performed
+// ProbeMeasurementResults contains an array of measurements performed
 // by a single probe, for a single measurement.
-type SingleMeasurementResult struct {
+type ProbeMeasurementResults struct {
 	FirmwareVersion int32    `json:"fw"`
 	Timestamp       int64    `json:"timestamp"`
 	ProbeID         int64    `json:"prb_id"`

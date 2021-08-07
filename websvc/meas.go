@@ -15,6 +15,7 @@ import (
 // TODO: Start time, end time, interval.
 // TODO: Backend creation error handling.
 // TODO: Restore.
+// TODO: Limit lines to 80 or 120 characters.
 
 const (
 	measDefDescrFmt   = "IPv4/HTTP measurement for target %s."
@@ -206,39 +207,30 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 		}
 	}
 
-	for _, id := range meas.BackendIDs {
+	for _, measID := range meas.BackendIDs {
+
 		req, err := atlas.PrepareRequest(
-			atlas.MeasurementResultsURL(id),
+			atlas.MeasurementResultsURL(measID),
 			&atlas.ReqParams{
 				Method: http.MethodGet,
 				Key:    cfg.Atlas.Auth.Key,
 			},
 		)
 		if err != nil {
-			recordError(fmt.Errorf("prepare request failed for %d: %v", id, err))
+			recordError(fmt.Errorf("prepare request failed for %d: %v", measID, err))
 			continue
 		}
 
 		var results atlas.MeasurementResults
 		if err = s.makeRequest(req, &results); err != nil {
-			recordError(fmt.Errorf("request failed for %d: %v", id, err))
+			recordError(fmt.Errorf("request failed for %d: %v", measID, err))
 			continue
 		}
 
-		// TODO: Implement smart updating.
-		for _, probeResult := range results {
-			for _, result := range probeResult.Results {
-				httpData := &db.HTTPData{
-					BackendID:     id,
-					ProbeID:       probeResult.ProbeID,
-					RoundTripTime: result.RT,
-					Timestamp:     time.Unix(probeResult.Timestamp, 0),
-				}
-				err = s.database.WriteHTTPMeasurementResult(meas.BucketName, httpData)
-				if err != nil {
-					recordError(fmt.Errorf("writing data point failed for %d: %v", id, err))
-					continue
-				}
+		for _, probeResults := range results {
+			if err = s.processProbeResults(&probeResults, measID, meas.BucketName); err != nil {
+				recordError(err)
+				continue
 			}
 		}
 	}
@@ -248,4 +240,68 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 	} else {
 		return timerTaskFailure(accuError)
 	}
+}
+
+func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults, measID int64, bucketName string) error {
+	var (
+		probe *atlas.Probe
+		err   error
+	)
+	// TODO: Implement smart updating.
+
+	if probe, err = s.getProbe(probeResults.ProbeID); err != nil {
+		return fmt.Errorf("probe info request failed for probe %d and measurement %d: %v", probeResults.ProbeID, measID, err)
+	}
+
+	for _, result := range probeResults.Results {
+		httpData := &db.HTTPData{
+			BackendID:     measID,
+			ProbeID:       probe.Id,
+			RoundTripTime: result.RT,
+			ASN:           probe.ASNv4,
+			Country:       probe.CountryCode,
+			Timestamp:     time.Unix(probeResults.Timestamp, 0),
+		}
+		if err = s.database.WriteHTTPMeasurementResult(bucketName, httpData); err != nil {
+			// do not continue, assume others will fail too
+			return fmt.Errorf("writing data point failed for %d: %v", measID, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *server) getProbe(id int64) (*atlas.Probe, error) {
+	var (
+		probe *atlas.Probe
+		req   *http.Request
+		ok    bool
+		err   error
+	)
+
+	if probe, ok = s.probeInfo.lookup(id); ok {
+		return probe, nil
+	}
+
+	req, err = atlas.PrepareRequest(
+		atlas.ProbeURL(id),
+		&atlas.ReqParams{
+			Method: http.MethodGet,
+			Key:    cfg.Atlas.Auth.Key,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = s.makeRequest(req, probe); err != nil {
+		return nil, err
+	}
+
+	// update probe cache
+	s.probeInfo.insert(probe)
+	s.log.info("[mgmt] probe info cached: id=%d country=%s asn=%d",
+		probe.Id, probe.CountryCode, probe.ASNv4)
+
+	return probe, nil
 }

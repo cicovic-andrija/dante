@@ -39,9 +39,11 @@ type server struct {
 
 	// measurements
 	measCache *measurementCache
+	probeInfo *probeTable
 
 	// timer tasks
-	taskManager *timerTaskManager
+	taskManager   *timerTaskManager
+	taskManagerWg *sync.WaitGroup
 }
 
 func (s *server) init() error {
@@ -69,15 +71,13 @@ func (s *server) init() error {
 	}
 
 	s.measCache = newMeasurementCache()
+	s.probeInfo = newProbeTable()
 
-	s.taskManager = &timerTaskManager{
-		tasks: make([]*timerTask, 0, taskPoolInitCap),
-		wg:    &sync.WaitGroup{},
-	}
+	s.taskManager = newTimerTaskManager()
 
 	// default, always-running timer tasks
 	s.taskManager.addTask("get-credits", s.getCredits, 5*time.Minute, s.log)
-	s.taskManager.addTask("probe-database", s.probeDatabase, 10*time.Minute, s.log)
+	s.taskManager.addTask("probe-database", s.probeDatabase, 10*time.Second, s.log)
 
 	return nil
 }
@@ -88,7 +88,10 @@ func (s *server) run() {
 
 	// Timer tasks
 	s.log.info("[main] starting timer tasks ...")
-	s.taskManager.runAll()
+	s.taskManagerWg = &sync.WaitGroup{}
+	s.taskManagerWg.Add(1)
+	s.taskManager.run(s.taskManagerWg) // run task manager itself
+	s.taskManager.runAllTasks()
 }
 
 func (s *server) signalShutdown() {
@@ -98,15 +101,18 @@ func (s *server) signalShutdown() {
 func (s *server) shutdown() {
 	s.log.info("[main] shutting down the server ...")
 
-	s.taskManager.stopAll()
-	s.database.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	s.httpServer.Shutdown(ctx) // TODO: Handle error returned by Shutdown.
+	s.httpWg.Wait()
+
+	s.taskManager.stopAll()
+	s.taskManager.stop()
+
+	s.database.Close()
 
 	s.taskManager.wg.Wait()
-	s.httpWg.Wait()
+	s.taskManagerWg.Wait()
 
 	s.log.info("[main] server stopped.")
 	s.log.finalize()

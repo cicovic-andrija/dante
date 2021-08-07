@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+const (
+	stopChBufferSz = 32
+)
+
 type taskFn func(args ...interface{}) (string, bool)
 
 type timerTask struct {
@@ -62,17 +66,51 @@ type timerTaskManager struct {
 	quit chan struct{}
 
 	// task management
-	tasks  []*timerTask
+	tasks  map[string]*timerTask
 	stopCh chan string
 	wg     *sync.WaitGroup
 }
 
-// TODO: Implement smart slice inserting.
+func newTimerTaskManager() *timerTaskManager {
+	return &timerTaskManager{
+		quit:   make(chan struct{}),
+		tasks:  make(map[string]*timerTask),
+		stopCh: make(chan string, stopChBufferSz),
+		wg:     &sync.WaitGroup{},
+	}
+}
+
+// Run task manager itself.
+func (t *timerTaskManager) run(wg *sync.WaitGroup) {
+	go func() {
+		for {
+			select {
+			case taskName := <-t.stopCh:
+				t.Lock()
+				if task, ok := t.tasks[taskName]; ok {
+					task.stop()
+					delete(t.tasks, taskName) // is this ok?
+				}
+				t.Unlock()
+			case <-t.quit:
+				wg.Done()
+				return
+			}
+		}
+	}()
+}
+
+// Stop task manager itself.
+func (t *timerTaskManager) stop() {
+	close(t.quit)
+	close(t.stopCh)
+}
+
 func (t *timerTaskManager) scheduleTask(task *timerTask, args ...interface{}) {
 	t.Lock()
-	t.tasks = append(t.tasks, task)
-	task.run(t.wg, args...)
+	t.tasks[task.name] = task
 	t.wg.Add(1)
+	task.run(t.wg, args...)
 	t.Unlock()
 }
 
@@ -92,16 +130,18 @@ func (t *timerTaskManager) stopAll() {
 // It should not be used later.
 func (t *timerTaskManager) addTask(name string, fn taskFn, period time.Duration, log *logstruct) {
 	t.Lock()
-	t.tasks = append(
-		t.tasks,
-		&timerTask{name: name, execute: fn, period: period, log: log},
-	)
+	t.tasks[name] = &timerTask{
+		name:    name,
+		execute: fn,
+		period:  period,
+		log:     log,
+	}
 	t.Unlock()
 }
 
 // This is just a help method to be used during server boot.
 // It should not be used later.
-func (t *timerTaskManager) runAll() {
+func (t *timerTaskManager) runAllTasks() {
 	t.Lock()
 	for _, task := range t.tasks {
 		task.run(t.wg)

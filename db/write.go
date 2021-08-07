@@ -36,6 +36,8 @@ type HTTPData struct {
 	BackendID     int64
 	ProbeID       int64
 	RoundTripTime float64
+	ASN           int64
+	Country       string
 	Timestamp     time.Time
 }
 
