@@ -12,8 +12,6 @@ import (
 
 // TODO: Stop measurement.
 // TODO: Stop measurement worker.
-// TODO: Start time, end time, interval.
-// TODO: Backend creation error handling.
 // TODO: Restore.
 // TODO: Limit lines to 80 or 120 characters.
 
@@ -21,10 +19,6 @@ const (
 	measDefDescrFmt   = "IPv4/HTTP measurement for target %s."
 	measBucketNameFmt = "meas-%s"
 	measIDHexLength   = 9
-
-	statusScheduled = "scheduled"
-	statusOngoing   = "ongoing"
-	statusCompleted = "completed"
 )
 
 func freshMeasurementID() (id string, err error) {
@@ -33,10 +27,24 @@ func freshMeasurementID() (id string, err error) {
 }
 
 func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
+	var (
+		startTime time.Time
+		endTime   time.Time
+		err       error
+	)
+
+	if len(req.Targets) == 0 {
+		return false, CFTargetNotSpecified
+	}
+
 	for _, target := range req.Targets {
 		if target == "" {
 			return false, CFEmptyTargetInRequest
 		}
+	}
+
+	if len(req.ProbeRequests) == 0 {
+		return false, CFProbeRequestNotSpecified
 	}
 
 	for _, probeReq := range req.ProbeRequests {
@@ -46,6 +54,37 @@ func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
 		if found := util.SearchForString(probeReq.Type, atlas.ValidProbeRequestTypes...); !found {
 			return false, fmt.Sprintf(CFInvalidProbeRequestTypeFmt, atlas.ValidProbeRequestTypesStr)
 		}
+	}
+
+	if req.StartTimeRFC3339 == "" {
+		return false, CFStartTimeNotSpecified
+	}
+
+	if startTime, err = time.Parse(time.RFC3339, req.StartTimeRFC3339); err != nil {
+		return false, fmt.Sprintf(CFInvalidTimeValueFmt, req.StartTimeRFC3339)
+	}
+
+	if req.StopTimeRFC3339 == "" {
+		return false, CFEndTimeNotSpecified
+	}
+
+	if endTime, err = time.Parse(time.RFC3339, req.StopTimeRFC3339); err != nil {
+		return false, fmt.Sprintf(CFInvalidTimeValueFmt, req.StopTimeRFC3339)
+	}
+
+	if endTime.Before(startTime) {
+		return false, CFEndTimeBeforeStartTime
+	}
+
+	req.startTimeUnix = startTime.Unix()
+	req.stopTimeUnix = endTime.Unix()
+
+	if req.IntervalSec <= 0 {
+		return false, CFInvalidIntervalValue
+	}
+
+	if req.IntervalSec >= (req.stopTimeUnix - req.startTimeUnix) {
+		return false, CFIntervalValueTooLarge
 	}
 
 	return true, ""
@@ -106,9 +145,11 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 			AddressFamily: atlas.IPv4,
 			Target:        target,
 			Description:   fmt.Sprintf(measDefDescrFmt, target),
-			//Interval:      60,
-			IsPublic: false,
-			IsOneOff: true,
+			IsPublic:      false,
+			IsOneOff:      false,
+			StartTime:     req.startTimeUnix,
+			StopTime:      req.stopTimeUnix,
+			Interval:      req.IntervalSec,
 		}
 		backendReq.Definitions = append(backendReq.Definitions, def)
 	}
@@ -176,7 +217,7 @@ func (s *server) mintMeasurement(backendIDs []int64, description string, id stri
 		ID:          id,
 		BucketName:  bucketName,
 		Description: description,
-		Status:      statusScheduled,
+		Status:      CFStatusScheduled,
 		URL:         s.database.DataExplorerURL(bucketName),
 	}
 
@@ -255,7 +296,7 @@ func (s *server) scheduleWorker(meas *measurement) error {
 	task := &timerTask{
 		name:    meas.ID,
 		execute: s.updateMeasurementResults,
-		period:  1 * time.Minute,
+		period:  5 * time.Minute,
 		log:     s.log,
 	}
 
@@ -310,7 +351,7 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 		}
 
 		for _, probeResults := range results {
-			if err = s.processProbeResults(&probeResults, backend.ID, meas.BucketName); err != nil {
+			if err = s.processProbeResults(&probeResults, backend, meas.BucketName); err != nil {
 				recordError(err)
 				continue
 			}
@@ -325,28 +366,33 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 }
 
 // TODO: Implement smart updating.
-func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults, measID int64, bucketName string) error {
+func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults, backend *backendMeasurement, bucketName string) error {
 	var (
 		probe *atlas.Probe
 		err   error
 	)
 
 	if probe, err = s.getProbe(probeResults.ProbeID); err != nil {
-		return fmt.Errorf("probe info request failed for probe %d and measurement %d: %v", probeResults.ProbeID, measID, err)
+		return fmt.Errorf("probe info request failed for probe %d and measurement %d: %v", probeResults.ProbeID, backend.ID, err)
 	}
 
 	for _, result := range probeResults.Results {
 		httpData := &db.HTTPData{
-			BackendID:     measID,
+			BackendID:     backend.ID,
 			ProbeID:       probe.ID,
-			RoundTripTime: result.RT,
 			ASN:           probe.ASNv4,
 			Country:       probe.CountryCode,
+			Target:        backend.Target,
+			TargetIP:      backend.TargetIP,
+			RoundTripTime: result.RT,
+			BodySize:      result.BodySize,
+			HeaderSize:    result.HeaderSize,
+			StatusCode:    result.Result,
 			Timestamp:     time.Unix(probeResults.Timestamp, 0),
 		}
 		if err = s.database.WriteHTTPMeasurementResult(bucketName, httpData); err != nil {
 			// do not continue, assume others will fail too
-			return fmt.Errorf("writing data point failed for %d: %v", measID, err)
+			return fmt.Errorf("writing data point failed for %d: %v", backend.ID, err)
 		}
 	}
 

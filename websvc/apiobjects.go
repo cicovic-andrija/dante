@@ -1,6 +1,8 @@
 package websvc
 
-import "github.com/influxdata/influxdb-client-go/v2/domain"
+import (
+	"github.com/influxdata/influxdb-client-go/v2/domain"
+)
 
 type control struct {
 	Operation string `json:"operation"`
@@ -17,14 +19,15 @@ type creditResp struct {
 }
 
 type measurementReq struct {
-	// mandatory fields
-	Targets       []string   `json:"targets"`
-	ProbeRequests []probeReq `json:"probe_requests"`
-	Description   string     `json:"description"`
+	Targets          []string   `json:"targets"`
+	ProbeRequests    []probeReq `json:"probe_requests"`
+	Description      string     `json:"description"`
+	StartTimeRFC3339 string     `json:"start_time_rfc3339"`
+	StopTimeRFC3339  string     `json:"stop_time_rfc3339"`
+	IntervalSec      int64      `json:"interval_sec"`
 
-	// optional fields
-	//StartTimeUTC *string `json:"start_time_utc"`
-	//EndTimeUTC   *string `json:"end_time_utc"`
+	startTimeUnix int64 `json:"-"`
+	stopTimeUnix  int64 `json:"-"`
 }
 
 type probeReq struct {

@@ -24,6 +24,13 @@ const (
 	ContentType         = "application/json"
 )
 
+// Measurement status IDs.
+const (
+	MeasurementStatusIDScheduled = 1
+	MeasurementStatusIDOngoing   = 2
+	MeasurementStatusIDStopped   = 4
+)
+
 // Measurement type constants.
 const (
 	MeasHTTP       = "http"

@@ -31,9 +31,9 @@ type MeasurementDefinition struct {
 	Description   string `json:"description"`
 	IsPublic      bool   `json:"is_public"`
 	IsOneOff      bool   `json:"is_oneoff"`
-	StartTime     *int64 `json:"start_time"`
-	StopTime      *int64 `json:"stop_time"`
-	Interval      *int64 `json:"interval"`
+	StartTime     int64  `json:"start_time"`
+	StopTime      int64  `json:"stop_time"`
+	Interval      int64  `json:"interval"`
 }
 
 // ProbeRequest specifies how the probes are to be selected

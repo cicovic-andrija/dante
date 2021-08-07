@@ -9,21 +9,30 @@ import (
 
 // Client-facing messages and message formats in API response objects.
 const (
+	CFCreationFailedFmt          = "Measurement %s creation failed because of a system error."
 	CFEmptyTargetInRequest       = "Target cannot be empty string."
 	CFEndpointNotFound           = "Endpoint not found."
+	CFEndTimeBeforeStartTime     = "End time cannot be a value earlier than start time."
+	CFEndTimeNotSpecified        = "End time not specified."
 	CFInternalServerErrorFmt     = "Request %s %s failed because of an internal server error."
+	CFIntervalValueTooLarge      = "Interval value too large for the specified time window."
+	CFInvalidIntervalValue       = "Interval value not specified or invalid. Value must be a positive integer."
 	CFInvalidNumberOfProbes      = "Number of requested probes must be a positive integer."
 	CFInvalidOperationFmt        = "Operation %s is invalid."
 	CFInvalidProbeRequestTypeFmt = "Probe request type must be one of: %s"
+	CFInvalidTimeValueFmt        = "Failed to parse time value: %s."
 	CFMethodNotAllowedFmt        = "Method %s is not allowed."
+	CFProbeRequestNotSpecified   = "At least one probe request must be specified."
 	CFReqDecodingFailed          = "Failed to decode request body."
-	CFCreationFailedFmt          = "Measurement %s creation failed because of a system error."
-	CFStatusSuccess              = "Success."
+	CFStartTimeNotSpecified      = "Start time not specified."
 	CFStatusAccepted             = "Accepted."
-	CFStatusFailed               = "Failed."
-	CFStatusScheduled            = "Scheduled."
-	CFStatusOngoing              = "Ongoing."
 	CFStatusCompleted            = "Completed."
+	CFStatusFailed               = "Failed."
+	CFStatusOngoing              = "Ongoing."
+	CFStatusScheduled            = "Scheduled."
+	CFStatusStopped              = "Stopped."
+	CFStatusSuccess              = "Success."
+	CFTargetNotSpecified         = "At least one target must be specified."
 )
 
 // This request is issued in multiple places,

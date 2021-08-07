@@ -42,3 +42,11 @@ func (c *measurementCache) getAll() []*measurement {
 	}
 	return measurements
 }
+
+func (c *measurementCache) updateStatus(id string, status string) {
+	c.Lock()
+	if meas, ok := c.measurements[id]; ok {
+		meas.Status = status
+	}
+	c.Unlock()
+}

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	httpClientTimeout = 15 * time.Second
+	httpClientTimeout = 25 * time.Second
 )
 
 // ErrorResponse specifies a response object sent in case

@@ -22,12 +22,20 @@ const (
 	tagStatus      = "status"
 	tagBackendID   = "backend-id"
 	tagProbeID     = "probe-id"
+	tagASN         = "asn"
+	tagCountry     = "country"
+	tagTarget      = "target"
+	tagTargetIP    = "target-ip"
 
-	fieldBackendID = "backend-id"
-	fieldRT        = "rt"
-	fieldValue     = "value"
+	fieldValue      = "value"
+	fieldBackendID  = "backend-id"
+	fieldRT         = "rt"
+	fieldBodySize   = "body-size"
+	fieldHeaderSize = "header-size"
+	fieldStatusCode = "status-code"
 )
 
+// TODO: remove?
 var nullTimestamp = time.Unix(0, 0)
 
 // HTTPData specifies values of a data point
@@ -35,9 +43,14 @@ var nullTimestamp = time.Unix(0, 0)
 type HTTPData struct {
 	BackendID     int64
 	ProbeID       int64
-	RoundTripTime float64
 	ASN           int64
 	Country       string
+	Target        string
+	TargetIP      string
+	RoundTripTime float64
+	BodySize      int64
+	HeaderSize    int64
+	StatusCode    int32
 	Timestamp     time.Time
 }
 
@@ -51,9 +64,16 @@ func (c *Client) WriteHTTPMeasurementResult(bucketName string, httpData *HTTPDat
 		map[string]string{
 			tagBackendID: strconv.FormatInt(httpData.BackendID, 10),
 			tagProbeID:   strconv.FormatInt(httpData.ProbeID, 10),
+			tagASN:       strconv.FormatInt(httpData.ASN, 10),
+			tagCountry:   httpData.Country,
+			tagTarget:    httpData.Target,
+			tagTargetIP:  httpData.TargetIP,
 		},
 		map[string]interface{}{
-			fieldRT: httpData.RoundTripTime,
+			fieldRT:         httpData.RoundTripTime,
+			fieldBodySize:   httpData.BodySize,
+			fieldHeaderSize: httpData.HeaderSize,
+			fieldStatusCode: httpData.StatusCode,
 		},
 		httpData.Timestamp,
 	)
