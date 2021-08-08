@@ -1,6 +1,7 @@
 package websvc
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/cicovic-andrija/dante/db"
@@ -59,13 +60,26 @@ func (s *server) singleMeasurementHandler(w http.ResponseWriter, r *http.Request
 
 	// HTTP DELETE
 	case http.MethodDelete:
-		// TODO
+		id := routeVars["id"]
+		if _, found := s.measCache.get(id); !found {
+			s.httpWriteResponseObject(w, r, http.StatusNotFound, ResourceNotFound)
+			return
+		}
+
+		status := s.deleteMeasurement(id)
+		switch status {
+		case http.StatusNotFound:
+			s.httpWriteResponseObject(w, r, status, ResourceNotFound)
+		case http.StatusNoContent:
+			w.WriteHeader(status)
+		default:
+			s.internalServerError(w, r, fmt.Errorf("unexpected status code: %d", status))
+		}
 	}
 }
 
 func (s *server) measurementControlHandler(w http.ResponseWriter, r *http.Request, routeVars map[string]string) {
 	// HTTP POST
-
 	ctrl := &control{}
 	if ok := s.decodeReqBody(w, r, ctrl); !ok {
 		return
@@ -76,19 +90,8 @@ func (s *server) measurementControlHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	id := routeVars["id"]
-	if _, found := s.measCache.get(id); !found {
-		s.httpWriteResponseObject(w, r, http.StatusNotFound, ResourceNotFound)
-		return
-	}
-
-	stat, err := s.stopMeasurement(id)
-	if err != nil {
-		s.internalServerError(w, r, err)
-		return
-	}
-
-	s.httpWriteResponseObject(w, r, http.StatusOK, stat)
+	status, respObj := s.stopMeasurement(routeVars["id"])
+	s.httpWriteResponseObject(w, r, status, respObj)
 }
 
 func (s *server) creditsHandler(w http.ResponseWriter, r *http.Request) {

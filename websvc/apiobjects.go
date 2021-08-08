@@ -46,13 +46,17 @@ type measurement struct {
 	Reason              string                `json:"reason,omitempty"`
 	URL                 string                `json:"url,omitempty"`
 
-	bucket *domain.Bucket `json:"-"`
+	backendIDs []int64        `json:"-"`
+	bucket     *domain.Bucket `json:"-"`
 }
 
 type backendMeasurement struct {
 	ID       int64  `json:"backend_id"`
 	Target   string `json:"target"`
 	TargetIP string `json:"target_ip"`
+
+	startTimeUnix int64 `json:"-"`
+	stopTimeUnix  int64 `json:"-"`
 
 	stopped bool `json:"-"`
 }

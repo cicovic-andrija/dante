@@ -68,6 +68,8 @@ type Measurement struct {
 	Description   string `json:"description"`
 	Target        string `json:"target"`
 	TargetIP      string `json:"target_ip"`
+	StartTime     int64  `json:"start_time"`
+	StopTime      int64  `json:"stop_time"`
 	Status        struct {
 		ID int32 `json:"id"`
 	} `json:"status"`

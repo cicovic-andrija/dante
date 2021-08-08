@@ -1,6 +1,7 @@
 package websvc
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/cicovic-andrija/dante/atlas"
 	"github.com/cicovic-andrija/dante/db"
 	"github.com/cicovic-andrija/dante/util"
+	"github.com/influxdata/influxdb-client-go/v2/domain"
 )
 
 // TODO: Stop measurement.
@@ -237,6 +239,7 @@ func (s *server) fetchRetainBackendDetails(meas *measurement, backendIDs []int64
 	)
 
 	meas.BackendMeasurements = make([]*backendMeasurement, 0, len(backendIDs))
+	meas.backendIDs = make([]int64, 0, len(backendIDs))
 
 	for _, id := range backendIDs {
 		req, err = atlas.PrepareRequest(
@@ -260,9 +263,13 @@ func (s *server) fetchRetainBackendDetails(meas *measurement, backendIDs []int64
 			Target:   resp.Target,
 			TargetIP: resp.TargetIP,
 
+			startTimeUnix: resp.StartTime,
+			stopTimeUnix:  resp.StopTime,
+
 			stopped: resp.Status.ID > atlas.MeasurementStatusIDOngoing,
 		}
 		meas.BackendMeasurements = append(meas.BackendMeasurements, bm)
+		meas.backendIDs = append(meas.backendIDs, id)
 	}
 
 	return nil
@@ -319,6 +326,12 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 	}
 
 	for _, backend := range meas.BackendMeasurements {
+
+		// simple optimization
+		if !backend.stopped && time.Now().Before(time.Unix(backend.startTimeUnix, 0)) {
+			continue
+		}
+
 		// ignore backend measurement if flagged as stopped in a past iteration
 		if backend.stopped {
 			continue
@@ -340,6 +353,12 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 		if err = s.makeRequest(req, &results); err != nil {
 			recordError(fmt.Errorf("request failed for %d: %v", backend.ID, err))
 			continue
+		}
+
+		// bucket got delted along with the measurement
+		// end this (most probably last) iteration
+		if meas.bucket == nil {
+			return timerTaskFailure(errors.New("bucket deleted"))
 		}
 
 		for _, probeResults := range results {
@@ -388,6 +407,7 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 			break
 		}
 	}
+
 	if stopWorker {
 		// other threads may update measurement status,
 		// so do it in a locked code section
@@ -441,27 +461,66 @@ func (s *server) processProbeResults(probeResults *atlas.ProbeMeasurementResults
 	return nil
 }
 
-func (s *server) stopMeasurement(id string) (stat *status, err error) {
+func (s *server) stopMeasurement(id string) (int, interface{}) {
 	// stop the worker task in a locked code section because
 	// the measurement object is being updated by the non-worker tread
 	s.measCache.Lock()
-	meas := s.measCache.measurements[id]
+	defer s.measCache.Unlock()
+
+	meas, found := s.measCache.get(id)
+	if !found {
+		return http.StatusNotFound, ResourceNotFound
+	}
 
 	if meas.Status != CFStatusScheduled && meas.Status != CFStatusOngoing {
-		s.measCache.Unlock()
-		return &status{Status: CFStatusFailed, Explanation: CFMeasurementNoStop}, nil
+		return http.StatusForbidden, &status{Status: CFStatusFailed, Explanation: CFMeasurementNoStop}
 	}
 
 	s.taskManager.stopTask(id)
 	meas.Status = CFStatusStopped
-	s.measCache.Unlock()
 
-	// best effort, ignore errors
-	for _, backendMeasurement := range meas.BackendMeasurements {
-		s.stopBackendMeasurements(backendMeasurement.ID)
+	// as this is executed by an http handler, run long operation in another thread
+	// errors are disregarded anyway
+	go s.stopBackendMeasurements(meas.backendIDs...)
+
+	return http.StatusOK, &status{Status: CFStatusSuccess}
+}
+
+func (s *server) deleteMeasurement(id string) int {
+	// stop the worker task in a locked code section because
+	// the measurement object is being updated by the non-worker tread
+	s.measCache.Lock()
+	defer s.measCache.Unlock()
+
+	meas, found := s.measCache.get(id)
+	if !found {
+		return http.StatusNotFound
 	}
 
-	return &status{Status: CFStatusSuccess}, nil
+	if meas.Status == CFStatusScheduled || meas.Status == CFStatusOngoing {
+		s.taskManager.stopTask(id)
+	}
+
+	meas.Status = CFStatusStopped
+
+	// update server cache
+	s.measCache.del(id)
+
+	// as this is executed by an http handler, run long operation in another thread
+	// errors are disregarded anyway
+	go func(measID string, bucket *domain.Bucket, backendIDs ...int64) {
+		s.stopBackendMeasurements(backendIDs...)
+
+		// after this is done, some write operations to the bucket will fail
+		// that's ok
+		if bucket != nil {
+			if err := s.database.DeleteBucket(bucket); err != nil {
+				s.log.err("[mgmt %s] failed to delete bucket %s: %v", measID, bucket.Name, err)
+			}
+		}
+	}(meas.ID, meas.bucket, meas.backendIDs...)
+
+	return http.StatusNoContent
 }
 
 func (s *server) getProbe(id int64) (*atlas.Probe, error) {
