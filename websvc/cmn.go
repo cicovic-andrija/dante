@@ -3,6 +3,8 @@ package websvc
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/cicovic-andrija/dante/atlas"
 )
@@ -31,7 +33,6 @@ const (
 
 	CFStatusSuccess = "Success."
 
-	CFStatusCompleted = "Completed."
 	CFStatusFailed    = "Failed."
 	CFStatusOngoing   = "Ongoing."
 	CFStatusQueued    = "Queued."
@@ -66,4 +67,24 @@ func (s *server) httpGetCredits() (*atlas.Credit, error) {
 	}
 
 	return credit, err
+}
+
+// help functions
+
+func backendIDsToStr(backendMeasurements []*backendMeasurement) string {
+	strs := make([]string, 0, len(backendMeasurements))
+	for _, bm := range backendMeasurements {
+		strs = append(strs, strconv.FormatInt(bm.ID, 10))
+	}
+	return strings.Join(strs, ";")
+}
+
+func strToBackendIDs(str string) []int64 {
+	strs := strings.Split(str, ";")
+	ids := make([]int64, 0, len(strs))
+	for _, s := range strs {
+		i, _ := strconv.ParseInt(s, 10, 64)
+		ids = append(ids, i)
+	}
+	return ids
 }

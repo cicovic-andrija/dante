@@ -12,14 +12,10 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/domain"
 )
 
-// TODO: Stop measurement.
-// TODO: Stop measurement worker.
-// TODO: Restore.
-// TODO: Limit lines to 80 or 120 characters.
-
 const (
 	measDefDescrFmt   = "IPv4/HTTP measurement for target %s."
-	measBucketNameFmt = "meas-%s"
+	measBucketPrefix  = "meas-"
+	measBucketNameFmt = measBucketPrefix + "%s"
 	measIDHexLength   = 9
 )
 
@@ -92,11 +88,15 @@ func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
 	return true, ""
 }
 
+// TODO: Delete metadata.
+// TODO: Handle user errors.
 func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 	var (
-		resp *atlas.MeasurementReqResponse
-		meas *measurement
-		err  error
+		resp    *atlas.MeasurementReqResponse
+		meas    *measurement
+		code    int64
+		details string
+		err     error
 	)
 
 	commitFailedMeasurement := func() {
@@ -109,13 +109,19 @@ func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 		)
 	}
 
-	if resp, err = s.createBackendMeasurements(req); err != nil {
+	if resp, code, details, err = s.createBackendMeasurements(req); err != nil {
 		s.log.err("[mgmt %s] backend measurement creation failed: %v", id, err)
-		commitFailedMeasurement()
+		if code >= http.StatusBadRequest && code < http.StatusInternalServerError {
+			// in case of bad request, embed details as the reason instead of a generic message
+			// commit failed measurement
+			s.measCache.insert(&measurement{ID: id, Status: CFStatusFailed, Reason: details})
+		} else {
+			commitFailedMeasurement()
+		}
 		return
 	}
 
-	if meas, err = s.mintMeasurement(resp.Measurements, req.Description, id); err != nil {
+	if meas, err = s.mintMeasurement(id, resp.Measurements, req.Description); err != nil {
 		s.stopBackendMeasurements(resp.Measurements...)
 		s.log.err("[mgmt %s] internal creation failed: %v", id, err)
 		commitFailedMeasurement()
@@ -134,7 +140,7 @@ func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 	s.measCache.insert(meas)
 }
 
-func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.MeasurementReqResponse, error) {
+func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.MeasurementReqResponse, int64, string, error) {
 	var (
 		backendReq = &atlas.MeasurementRequest{}
 		httpReq    *http.Request
@@ -174,22 +180,20 @@ func (s *server) createBackendMeasurements(req *measurementReq) (*atlas.Measurem
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, http.StatusInternalServerError, "", err
 	}
 
 	resp := &atlas.MeasurementReqResponse{}
 	if err = s.makeRequest(httpReq, resp); err != nil {
-		return nil, err
+		return nil, http.StatusInternalServerError, "", err
 	}
 
 	if resp.Error != nil {
-		return nil, fmt.Errorf(
-			"client request failed (%s %d): %s",
-			resp.Error.Title, resp.Error.Status, resp.Error.Detail,
-		)
+		err := fmt.Errorf("client request failed (%s %d): %s", resp.Error.Title, resp.Error.Status, resp.Error.Detail)
+		return nil, resp.Error.Status, resp.Error.Detail, err
 	}
 
-	return resp, nil
+	return resp, http.StatusOK, "", nil
 }
 
 // Best effort, ignore all errors.
@@ -208,7 +212,7 @@ func (s *server) stopBackendMeasurements(backendIDs ...int64) {
 	}
 }
 
-func (s *server) mintMeasurement(backendIDs []int64, description string, id string) (*measurement, error) {
+func (s *server) mintMeasurement(id string, backendIDs []int64, description string) (*measurement, error) {
 	var (
 		err error
 	)
@@ -276,7 +280,6 @@ func (s *server) fetchRetainBackendDetails(meas *measurement, backendIDs []int64
 }
 
 func (s *server) cleanupMeasurement(meas *measurement) {
-	// delete bucket if it exists
 	if meas.bucket != nil {
 		err := s.database.DeleteBucket(meas.bucket)
 		if err != nil {
@@ -294,6 +297,31 @@ func (s *server) scheduleWorker(meas *measurement) error {
 		} else {
 			return err
 		}
+
+		// if the bucket was nil, this is a new measurement
+		// write metadata about the measurement to the system bucket
+		err := s.database.WriteMeasurementMetadata(
+			db.MeasurementMetadata{
+				ID:            meas.ID,
+				Description:   meas.Description,
+				BackendIDsStr: backendIDsToStr(meas.BackendMeasurements),
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	doNotSchedule := true
+	for _, backendMeas := range meas.BackendMeasurements {
+		if !backendMeas.stopped {
+			doNotSchedule = false
+			break
+		}
+	}
+	if doNotSchedule {
+		meas.Status = CFStatusStopped
+		return nil
 	}
 
 	task := &timerTask{
@@ -415,7 +443,7 @@ func (s *server) updateMeasurementResults(args ...interface{}) (status string, f
 		// stop worker only if it's not stopped externally (by another thread)
 		if meas.Status == CFStatusScheduled || meas.Status == CFStatusOngoing {
 			s.taskManager.stopTask(meas.ID)
-			meas.Status = CFStatusCompleted
+			meas.Status = CFStatusStopped
 		}
 		s.measCache.Unlock()
 	}
@@ -467,7 +495,7 @@ func (s *server) stopMeasurement(id string) (int, interface{}) {
 	s.measCache.Lock()
 	defer s.measCache.Unlock()
 
-	meas, found := s.measCache.get(id)
+	meas, found := s.measCache.measurements[id]
 	if !found {
 		return http.StatusNotFound, ResourceNotFound
 	}
@@ -492,7 +520,7 @@ func (s *server) deleteMeasurement(id string) int {
 	s.measCache.Lock()
 	defer s.measCache.Unlock()
 
-	meas, found := s.measCache.get(id)
+	meas, found := s.measCache.measurements[id]
 	if !found {
 		return http.StatusNotFound
 	}
@@ -504,7 +532,7 @@ func (s *server) deleteMeasurement(id string) int {
 	meas.Status = CFStatusStopped
 
 	// update server cache
-	s.measCache.del(id)
+	delete(s.measCache.measurements, id)
 
 	// as this is executed by an http handler, run long operation in another thread
 	// errors are disregarded anyway
@@ -521,40 +549,4 @@ func (s *server) deleteMeasurement(id string) int {
 	}(meas.ID, meas.bucket, meas.backendIDs...)
 
 	return http.StatusNoContent
-}
-
-func (s *server) getProbe(id int64) (*atlas.Probe, error) {
-	var (
-		probe *atlas.Probe
-		req   *http.Request
-		ok    bool
-		err   error
-	)
-
-	if probe, ok = s.probeInfo.lookup(id); ok {
-		return probe, nil
-	}
-
-	req, err = atlas.PrepareRequest(
-		atlas.ProbeURL(id),
-		&atlas.ReqParams{
-			Method: http.MethodGet,
-			Key:    cfg.Atlas.Auth.Key,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	probe = &atlas.Probe{}
-	if err = s.makeRequest(req, probe); err != nil {
-		return nil, err
-	}
-
-	// update probe cache
-	s.probeInfo.insert(probe)
-	s.log.info("[mgmt] probe info cached: id=%d country=%s asn=%d",
-		probe.ID, probe.CountryCode, probe.ASNv4)
-
-	return probe, nil
 }

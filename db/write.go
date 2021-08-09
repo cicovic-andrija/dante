@@ -19,7 +19,7 @@ const (
 const (
 	tagID          = "id"
 	tagDescription = "description"
-	tagStatus      = "status"
+	tagBackendIDs  = "backend-ids"
 	tagBackendID   = "backend-id"
 	tagProbeID     = "probe-id"
 	tagASN         = "asn"
@@ -28,14 +28,12 @@ const (
 	tagTargetIP    = "target-ip"
 
 	fieldValue      = "value"
-	fieldBackendID  = "backend-id"
 	fieldRT         = "rt"
 	fieldBodySize   = "body-size"
 	fieldHeaderSize = "header-size"
 	fieldStatusCode = "status-code"
 )
 
-// TODO: remove?
 var nullTimestamp = time.Unix(0, 0)
 
 // HTTPData specifies values of a data point
@@ -81,33 +79,23 @@ func (c *Client) WriteHTTPMeasurementResult(bucketName string, httpData *HTTPDat
 	return c.write(bucketName, dataPoint)
 }
 
-// WriteMeasurementMetadata writes one or more data points
-// of the MetadataMeasurement measurement.
+// WriteMeasurementMetadata writes a MetadataMeasurement data point to the SystemBucket.
 // It assumes c.Org is not nil.
-func (c *Client) WriteMeasurementMetadata(measID string, description string, status string, backendIDs []int64) error {
-	// write one data point per backend ID
-	for _, id := range backendIDs {
-		// specify data point
-		dataPoint := influxdb2.NewPoint(
-			MetadataMeasurement,
-			map[string]string{
-				tagID:          measID,
-				tagDescription: description,
-				tagStatus:      status,
-			},
-			map[string]interface{}{
-				fieldBackendID: id,
-			},
-			time.Now(),
-		)
+func (c *Client) WriteMeasurementMetadata(md MeasurementMetadata) error {
+	dataPoint := influxdb2.NewPoint(
+		MetadataMeasurement,
+		map[string]string{
+			tagID:          md.ID,
+			tagDescription: md.Description,
+			tagBackendIDs:  md.BackendIDsStr,
+		},
+		map[string]interface{}{
+			"dummy-value": 42,
+		},
+		nullTimestamp,
+	)
 
-		err := c.write(SystemBucket, dataPoint)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return c.write(SystemBucket, dataPoint)
 }
 
 // WriteCreditBalance writes a single data point
@@ -127,7 +115,7 @@ func (c *Client) WriteCreditBalance(creditBalance int64) error {
 
 func (c *Client) write(bucketName string, dataPoint *write.Point) error {
 	writeAPI := c.influxClient.WriteAPIBlocking(c.Org.Name, bucketName)
-	context, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
-	return writeAPI.WritePoint(context, dataPoint)
+	return writeAPI.WritePoint(ctx, dataPoint)
 }

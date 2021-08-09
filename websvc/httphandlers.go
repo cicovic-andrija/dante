@@ -60,13 +60,7 @@ func (s *server) singleMeasurementHandler(w http.ResponseWriter, r *http.Request
 
 	// HTTP DELETE
 	case http.MethodDelete:
-		id := routeVars["id"]
-		if _, found := s.measCache.get(id); !found {
-			s.httpWriteResponseObject(w, r, http.StatusNotFound, ResourceNotFound)
-			return
-		}
-
-		status := s.deleteMeasurement(id)
+		status := s.deleteMeasurement(routeVars["id"])
 		switch status {
 		case http.StatusNotFound:
 			s.httpWriteResponseObject(w, r, status, ResourceNotFound)

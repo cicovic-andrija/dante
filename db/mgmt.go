@@ -15,6 +15,14 @@ const (
 	HealthEndpointPath = "/health"
 )
 
+// MeasurementMetadata specifies measurement details
+// that will be persisted in the database.
+type MeasurementMetadata struct {
+	ID            string
+	Description   string
+	BackendIDsStr string
+}
+
 // HealthReport represents a response object returned
 // by the database API health endpoint.
 type HealthReport struct {
@@ -46,6 +54,18 @@ func (c *Client) EnsureOrganization(name string) (org *domain.Organization, err 
 	}
 
 	return nil, err
+}
+
+// LookupBucket looks up a bucket by name and returns it.
+func (c *Client) LookupBucket(name string) (bck *domain.Bucket, err error) {
+	var (
+		bckAPI = c.influxClient.BucketsAPI()
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	bck, err = bckAPI.FindBucketByName(ctx, name)
+	return
 }
 
 // EnsureBucket looks up a bucket by name and returns it.

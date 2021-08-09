@@ -33,9 +33,12 @@ type server struct {
 	httpWg     *sync.WaitGroup
 	router     http.Handler
 
-	// clients
+	// http client
 	httpClient *http.Client
-	database   *db.Client
+
+	// database objects
+	database *db.Client
+	mmd      []db.MeasurementMetadata
 
 	// measurements
 	measCache *measurementCache
@@ -60,9 +63,9 @@ func (s *server) init() error {
 		return err
 	}
 
-	s.log.info("server %s (version: %s)", s.name, version)
-	s.log.info("configuration: %s", cfg.Path())
-	s.log.info("environment: %s", cfg.Env)
+	s.log.info("[main] server %s (version: %s)", s.name, version)
+	s.log.info("[main] configuration: %s", cfg.Path())
+	s.log.info("[main] environment: %s", cfg.Env)
 
 	s.httpInit()
 
@@ -83,7 +86,7 @@ func (s *server) init() error {
 }
 
 func (s *server) run() {
-	// HTTP
+	// HTTP server
 	go s.runHTTP()
 
 	// Timer tasks
@@ -92,6 +95,9 @@ func (s *server) run() {
 	s.taskManagerWg.Add(1)
 	s.taskManager.run(s.taskManagerWg) // run task manager itself
 	s.taskManager.runAllTasks()
+
+	// Restore thread
+	go s.restore()
 }
 
 func (s *server) signalShutdown() {
@@ -136,6 +142,12 @@ func (s *server) dbinit() error {
 		return formatError(err)
 	} else {
 		s.database.SystemBucket = bck
+	}
+
+	if mmd, err := s.database.QueryMeasurementMetadata(); err != nil {
+		return formatError(err)
+	} else {
+		s.mmd = mmd
 	}
 
 	return nil
