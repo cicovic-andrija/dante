@@ -1,4 +1,4 @@
 package websvc
 
 // Current service version.
-var version = "0.9"
+var version = "1.0"

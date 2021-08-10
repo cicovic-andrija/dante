@@ -22,8 +22,8 @@ type Probe struct {
 	ASNv4       int64  `json:"asn_v4"`
 }
 
-// MeasurementDefinition
-// TODO
+// MeasurementDefinition specifies parameters of a new measurement,
+// in a measurement request.
 type MeasurementDefinition struct {
 	Type          string `json:"type"`
 	AddressFamily int32  `json:"af"`
@@ -93,18 +93,18 @@ type ProbeMeasurementResults struct {
 // Result represents a result of a performed HTTP measurement,
 // done by a probe.
 type Result struct {
-	// All firmware versions
+	// All firmware versions.
 	BodySize   int64   `json:"bsize"`
 	HeaderSize int64   `json:"hsize"`
 	Result     int32   `json:"res"`
 	RT         float64 `json:"rt"`
 
-	// Firmware version 4400
+	// Firmware version 4400.
 	Src  string `json:"srcaddr"`
 	Addr string `json:"addr"`
 	Mode string `json:"mode"`
 
-	// Firmware version 4460,4540,4570,4610,4750,5000
+	// Firmware version 4460,4540,4570,4610,4750,5000.
 	SrcAddr string `json:"src_addr"`
 	DstAddr string `json:"dst_addr"`
 	Method  string `json:"method"`

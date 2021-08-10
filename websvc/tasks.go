@@ -31,7 +31,7 @@ func (s *server) probeDatabase(args ...interface{} /* unused */) (status string,
 	err = s.httpGet(s.database.HealthEndpoint(), report)
 
 	if err == nil {
-		if report.Status == "pass" {
+		if report.Status == db.HealthStatusPass {
 			return timerTaskSuccess(
 				fmt.Sprintf("database is healthy and available on %s: %s",
 					s.database.ServerURL(), report.Message),

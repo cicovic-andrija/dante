@@ -11,7 +11,8 @@ import (
 
 // Client-facing messages and message formats in API response objects.
 const (
-	CFCreationFailedFmt          = "Measurement %s creation failed because of a system error."
+	CFCreationFailedFmt          = "Measurement %s creation failed: %s."
+	CFCreationFailedSystemFmt    = "Measurement %s creation failed because of a system error."
 	CFEmptyTargetInRequest       = "Target cannot be empty string."
 	CFEndpointNotFound           = "Endpoint not found."
 	CFEndTimeBeforeStartTime     = "End time cannot be a value earlier than start time."

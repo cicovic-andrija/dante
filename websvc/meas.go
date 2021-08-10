@@ -88,8 +88,6 @@ func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
 	return true, ""
 }
 
-// TODO: Delete metadata.
-// TODO: Handle user errors.
 func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 	var (
 		resp    *atlas.MeasurementReqResponse
@@ -99,12 +97,16 @@ func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 		err     error
 	)
 
-	commitFailedMeasurement := func() {
+	commitFailedMeasurement := func(details ...string) {
+		reason := fmt.Sprintf(CFCreationFailedSystemFmt, id)
+		if len(details) > 0 {
+			reason = fmt.Sprintf(CFCreationFailedFmt, id, details[0])
+		}
 		s.measCache.insert(
 			&measurement{
 				ID:     id,
 				Status: CFStatusFailed,
-				Reason: fmt.Sprintf(CFCreationFailedFmt, id),
+				Reason: reason,
 			},
 		)
 	}
@@ -112,9 +114,7 @@ func (s *server) measurementCreationWorkflow(req *measurementReq, id string) {
 	if resp, code, details, err = s.createBackendMeasurements(req); err != nil {
 		s.log.err("[mgmt %s] backend measurement creation failed: %v", id, err)
 		if code >= http.StatusBadRequest && code < http.StatusInternalServerError {
-			// in case of bad request, embed details as the reason instead of a generic message
-			// commit failed measurement
-			s.measCache.insert(&measurement{ID: id, Status: CFStatusFailed, Reason: details})
+			commitFailedMeasurement(details)
 		} else {
 			commitFailedMeasurement()
 		}

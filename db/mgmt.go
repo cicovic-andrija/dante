@@ -13,6 +13,7 @@ const (
 	SystemBucket = "system"
 
 	HealthEndpointPath = "/health"
+	HealthStatusPass   = "pass"
 )
 
 // MeasurementMetadata specifies measurement details

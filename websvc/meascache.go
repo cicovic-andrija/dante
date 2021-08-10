@@ -35,10 +35,10 @@ func (c *measurementCache) del(id string) {
 
 func (c *measurementCache) getAll() []*measurement {
 	c.RLock()
-	defer c.RUnlock()
 	measurements := make([]*measurement, 0, len(c.measurements))
 	for _, meas := range c.measurements {
 		measurements = append(measurements, meas)
 	}
+	c.RUnlock()
 	return measurements
 }

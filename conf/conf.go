@@ -99,7 +99,7 @@ func (cfg *Config) Init() error {
 			return fmt.Errorf("failed to read Atlas API key: %v", err)
 		}
 		cfg.Atlas.Auth.Key = key
-	} // TODO: What if key file is not provided?
+	}
 
 	if cfg.Influx.Organization == "" {
 		return fmt.Errorf("invalid InfluxDB organization: organization cannot be empty")
@@ -112,7 +112,7 @@ func (cfg *Config) Init() error {
 			return fmt.Errorf("failed to read InfluxDB token: %v", err)
 		}
 		cfg.Influx.Auth.Token = token
-	} // TODO: What if token file is not provided?
+	}
 
 	if finfo, statErr := os.Stat(cfg.Log.Dir); statErr != nil && os.IsNotExist(statErr) {
 		return fmt.Errorf("log path %q doesn't exist", cfg.Log.Dir)

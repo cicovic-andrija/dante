@@ -7,6 +7,8 @@ import (
 	"github.com/cicovic-andrija/dante/db"
 )
 
+const idPathVariable = "id"
+
 func (s *server) measurementsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	// HTTP GET
@@ -51,7 +53,7 @@ func (s *server) singleMeasurementHandler(w http.ResponseWriter, r *http.Request
 	switch r.Method {
 	// HTTP GET
 	case http.MethodGet:
-		meas, ok := s.measCache.get(routeVars["id"])
+		meas, ok := s.measCache.get(routeVars[idPathVariable])
 		if ok {
 			s.httpWriteResponseObject(w, r, http.StatusOK, meas)
 		} else {
@@ -60,7 +62,7 @@ func (s *server) singleMeasurementHandler(w http.ResponseWriter, r *http.Request
 
 	// HTTP DELETE
 	case http.MethodDelete:
-		status := s.deleteMeasurement(routeVars["id"])
+		status := s.deleteMeasurement(routeVars[idPathVariable])
 		switch status {
 		case http.StatusNotFound:
 			s.httpWriteResponseObject(w, r, status, ResourceNotFound)
@@ -84,7 +86,7 @@ func (s *server) measurementControlHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	status, respObj := s.stopMeasurement(routeVars["id"])
+	status, respObj := s.stopMeasurement(routeVars[idPathVariable])
 	s.httpWriteResponseObject(w, r, status, respObj)
 }
 

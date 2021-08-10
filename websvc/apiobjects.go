@@ -57,6 +57,5 @@ type backendMeasurement struct {
 
 	startTimeUnix int64 `json:"-"`
 	stopTimeUnix  int64 `json:"-"`
-
-	stopped bool `json:"-"`
+	stopped       bool  `json:"-"`
 }

@@ -15,7 +15,6 @@ type taskFn func(args ...interface{}) (string, bool)
 type timerTask struct {
 	name    string
 	execute taskFn
-	stopped bool
 	period  time.Duration
 	log     *logstruct
 	quit    chan struct{}
@@ -40,14 +39,11 @@ func (t *timerTask) run(wg *sync.WaitGroup, args ...interface{}) {
 				ticker.Stop()
 				t.log.info("[task %s] stopped", t.name)
 				wg.Done()
-				t.stopped = true
 				return
 			}
 		}
 	}()
 }
-
-// TODO: Remove stopped flag from timerTask?
 
 func (t *timerTask) stop() {
 	close(t.quit)
