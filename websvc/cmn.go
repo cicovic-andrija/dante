@@ -13,10 +13,11 @@ import (
 const (
 	CFCreationFailedFmt          = "Measurement %s creation failed: %s."
 	CFCreationFailedSystemFmt    = "Measurement %s creation failed because of a system error."
+	CFEmptyDescriptionInRequest  = "Description cannot be empty string."
 	CFEmptyTargetInRequest       = "Target cannot be empty string."
 	CFEndpointNotFound           = "Endpoint not found."
-	CFEndTimeBeforeStartTime     = "End time cannot be a value earlier than start time."
-	CFEndTimeNotSpecified        = "End time not specified."
+	CFEndTimeBeforeStartTime     = "Stop time cannot be a value earlier than start time."
+	CFEndTimeNotSpecified        = "Stop time not specified."
 	CFInternalServerErrorFmt     = "Request %s %s failed because of an internal server error."
 	CFIntervalValueTooLarge      = "Interval value too large for the specified time window."
 	CFInvalidIntervalValue       = "Interval value not specified or invalid. Value must be a positive integer."

@@ -31,6 +31,10 @@ func (s *server) validateMeasurementReq(req *measurementReq) (bool, string) {
 		err       error
 	)
 
+	if req.Description == "" {
+		return false, CFEmptyDescriptionInRequest
+	}
+
 	if len(req.Targets) == 0 {
 		return false, CFTargetNotSpecified
 	}
